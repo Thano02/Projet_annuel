@@ -1,68 +1,67 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CorrectionDialog } from "@/components/CorrectionDialog";
 
-const objetsDetectes = [
-  { id: 1, categorie: "Plastique" },
-  { id: 2, categorie: "Biologique" },
-  { id: 3, categorie: "Métal" },
-  { id: 4, categorie: "Papier" },
-  { id: 5, categorie: "Verre" },
-  { id: 6, categorie: "Carton" },
-];
-
-const exemples: Record<string, string> = {
-  Biologique: "(restes de repas, peau de fruits)",
-  Carton: "(boîtes, emballages)",
-  Verre: "(bouteilles, pots)",
-  Métal: "(canettes, couvercles)",
-  Papier: "(journaux, feuilles)",
-  Plastique: "(bouteilles, emballages)",
-};
-
 export default function App() {
-  const [objetSelectionne, setObjetSelectionne] = useState(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    const img = imgRef.current;
+    if (!canvas || !ctx || !img) return;
+
+    // Taille du canvas = taille du flux caméra
+    canvas.width = img.clientWidth;
+    canvas.height = img.clientHeight;
+
+    // Ajoute un événement de clic
+    const handleClick = () => {
+      setShowDialog(true);
+    };
+
+    canvas.addEventListener("click", handleClick);
+    return () => canvas.removeEventListener("click", handleClick);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <h1 className="text-3xl font-bold text-center mb-6">
-        Quels déchets reconnais-tu ?
+        Déposez votre plateau.
       </h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {objetsDetectes.map((objet, index) => (
-          <div
-            key={index}
-            onClick={() => setObjetSelectionne(objet)}
-            className="bg-white rounded-2xl shadow-md p-4 cursor-pointer hover:bg-blue-50 border border-gray-200 text-center"
-          >
-            <p className="text-2xl font-bold mb-2">
-              {objet.categorie} {getEmoji(objet.categorie)}
-            </p>
-            <p className="text-sm text-gray-500">
-              {exemples[objet.categorie]}
-            </p>
-          </div>
-        ))}
+      <div
+        style={{
+          position: "relative",
+          width: "1000px",
+          margin: "0 auto",
+        }}
+      >
+        <img
+          id="stream"
+          ref={imgRef}
+          src="http://localhost:8000/video_feed"
+          alt="Flux caméra"
+          style={{ width: "100%", borderRadius: "12px" }}
+        />
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 10,
+            pointerEvents: "auto",
+          }}
+        />
       </div>
 
-      {objetSelectionne && (
-        <CorrectionDialog
-          objet={objetSelectionne}
-          onClose={() => setObjetSelectionne(null)}
-        />
+      {showDialog && (
+        <CorrectionDialog objet={{ label: "Inconnu" }} onClose={() => setShowDialog(false)} />
       )}
     </div>
   );
-}
-
-function getEmoji(categorie: string): string {
-  const map: Record<string, string> = {
-    Biologique: "🍌🥙",
-    Carton: "📦",
-    Verre: "🫙",
-    Métal: "🍴",
-    Papier: "📄",
-    Plastique: "🧴",
-  };
-  return map[categorie] || "";
 }
