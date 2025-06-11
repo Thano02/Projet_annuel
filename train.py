@@ -1,9 +1,9 @@
 from ultralytics import YOLO
 
-# Charger un modèle pré-entraîné YOLOv8 Segmentation (nano, small, medium, etc.)
+# Charger le modèle YOLOv8 segmentation pré-entraîné
 model = YOLO("yolov8n-seg.pt")
 
-# Lancer l'entraînement
+# Lancer l'entraînement sur ton dataset annoté
 model.train(
     data="dataset_yolo/data.yaml",
     epochs=50,
@@ -11,5 +11,6 @@ model.train(
     batch=16,
     project="yolo_training",
     name="final_model",
-    save=True
+    save=True,
+    classes=6
 )
