@@ -50,7 +50,7 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
         {step === 1 && (
           <>
             <h2 className="text-xl font-semibold mb-4 text-center">
-              Quel déchet est mal reconnu ?
+              Quelle catégorie a été assignée par erreur ?
             </h2>
 
             <div className="grid grid-cols-2 gap-3 mb-6">

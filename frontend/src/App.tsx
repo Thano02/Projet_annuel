@@ -1,10 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import { CorrectionDialog } from "@/components/CorrectionDialog";
 
+interface Detection {
+  id: string;
+  label: string;
+  bbox: [number, number, number, number];
+  score: number;
+  image_width: number;
+  image_height: number;
+}
+
 export default function App() {
-  const [showDialog, setShowDialog] = useState(false);
+  const [detections, setDetections] = useState<Detection[]>([]);
+  const [selected, setSelected] = useState<Detection | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const fetchDetections = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/detections");
+        const data = await res.json();
+        setDetections(data);
+      } catch (err) {
+        console.error("Erreur fetch detections:", err);
+      }
+    };
+
+    fetchDetections();
+    const interval = setInterval(fetchDetections, 300);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -12,55 +38,85 @@ export default function App() {
     const img = imgRef.current;
     if (!canvas || !ctx || !img) return;
 
-    // Taille du canvas = taille du flux caméra
     canvas.width = img.clientWidth;
     canvas.height = img.clientHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Ajoute un événement de clic
-    const handleClick = () => {
-      setShowDialog(true);
+    // Ne pas dessiner les boxes, juste activer les zones cliquables invisibles
+    // detections.forEach((box) => {
+    //   const scaleX = canvas.width / box.image_width;
+    //   const scaleY = canvas.height / box.image_height;
+
+    //   const [rawX, rawY, rawW, rawH] = box.bbox;
+    //   const x = rawX * scaleX;
+    //   const y = rawY * scaleY;
+    //   const w = rawW * scaleX;
+    //   const h = rawH * scaleY;
+
+    //   ctx.strokeStyle = getColor(box.label);
+    //   ctx.lineWidth = 2;
+    //   ctx.strokeRect(x, y, w, h);
+    //   ctx.font = "14px Arial";
+    //   ctx.fillStyle = getColor(box.label);
+    //   ctx.fillText(box.label, x, y - 5);
+    // });
+  }, [detections]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      for (const box of detections) {
+        const scaleX = canvas.width / box.image_width;
+        const scaleY = canvas.height / box.image_height;
+
+        const [rawX, rawY, rawW, rawH] = box.bbox;
+        const bx = rawX * scaleX;
+        const by = rawY * scaleY;
+        const bw = rawW * scaleX;
+        const bh = rawH * scaleY;
+
+        if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+          setSelected(box);
+          break;
+        }
+      }
     };
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, []);
+  }, [detections]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold text-center mb-6">
+      <h1 className="text-3xl font-bold text-center mb-4">
         Déposez votre plateau.
       </h1>
 
-      <div
-        style={{
-          position: "relative",
-          width: "1000px",
-          margin: "0 auto",
-        }}
-      >
+      <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
         <img
           id="stream"
           ref={imgRef}
           src="http://localhost:8000/video_feed"
           alt="Flux caméra"
-          style={{ width: "100%", borderRadius: "12px" }}
+          className="rounded-2xl shadow-lg w-full border"
         />
         <canvas
           ref={canvasRef}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            zIndex: 10,
-            pointerEvents: "auto",
-          }}
+          className="absolute top-0 left-0 w-full h-full z-10 pointer-events-auto"
         />
       </div>
 
-      {showDialog && (
-        <CorrectionDialog objet={{ label: "Inconnu" }} onClose={() => setShowDialog(false)} />
+      {selected && (
+        <CorrectionDialog
+          objet={selected}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );

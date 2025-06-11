@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = YOLO("clean_dataset/runs/yolov8n-seg.pt")
+model = YOLO("model/yolov8n-seg.pt")
 
 cap = cv2.VideoCapture(0)
 stop_stream = threading.Event()
