@@ -1,0 +1,11 @@
+path: dataset_yolo
+train: images/train
+val: images/val
+
+names:
+  0: biodéchet
+  1: carton
+  2: verre
+  3: metal
+  4: papier
+  5: plastique
