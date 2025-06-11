@@ -3,7 +3,7 @@ import cv2
 
 def run_yolo_webcam():
     # Charger le modèle YOLOv8
-    model = YOLO("model/yolov8n-seg.pt")  # adapte le chemin si nécessaire
+    model = YOLO("clean_dataset/runs/segment/train/weights/best.pt")  # adapte le chemin si nécessaire
 
     # Accès à la webcam
     cap = cv2.VideoCapture(0)

@@ -1,39 +1,23 @@
+# === Test du modèle pré-entraîné YOLOv8n-seg sur une image générique ===
 from ultralytics import YOLO
-import os
-import shutil
+from PIL import Image
+import matplotlib.pyplot as plt
 
-# === Paramètres ===
-model_path = "runs/segment/train/weights/best.pt"  # le modèle entrainé
-dataset_root = "dataset_yolo"
-splits = ["train", "val"]
+# Charger le modèle pré-entraîné
+model = YOLO("model/yolov8n-seg.pt")
+print("\\n=== Test du modèle YOLOv8n-seg pré-entraîné ===")
 
-# === Charger le modèle YOLOv8 ===
-model = YOLO(model_path)
+# Image générique de test (tu peux mettre n'importe quelle image avec objets COCO)
+image_path = "dataset_yolo/images/train/biological_20.jpg"
 
-for split in splits:
-    img_dir = os.path.join(dataset_root, "images", split)
-    label_dir = os.path.join(dataset_root, "labels", split)
-    os.makedirs(label_dir, exist_ok=True)
-
-    print(f"🔎 Prédiction sur: {img_dir} ...")
-
-    # Prédiction avec sauvegarde des .txt
-    results = model.predict(
-        source=img_dir,
-        save_txt=True,
-        save_conf=True,
-        save=False,  # pas besoin d'images annotées ici
-        project=os.path.join("runs", "auto_annotate"),
-        name=split,
-        exist_ok=True
-    )
-
-    # Récupérer les .txt générés
-    pred_labels_dir = os.path.join("runs", "auto_annotate", split, "labels")
-    for file in os.listdir(pred_labels_dir):
-        if file.endswith(".txt"):
-            shutil.copy2(os.path.join(pred_labels_dir, file), os.path.join(label_dir, file))
-
-    print(f"✅ Annotations sauvegardées dans {label_dir}")
-
-print("🎉 Auto-annotation terminée pour tous les splits !")
+if os.path.exists(image_path):
+    try:
+        results = model.predict(image_path, imgsz=640, show=False)
+        res_plotted = results[0].plot()
+        img = Image.fromarray(res_plotted)
+        img.show()
+        print("✅ Image affichée avec les prédictions du modèle pré-entraîné.")
+    except Exception as e:
+        print(f"❌ Erreur lors de la prédiction avec le modèle pré-entraîné : {e}")
+else:
+    print(f"❌ Image introuvable : {image_path}")
