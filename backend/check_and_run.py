@@ -9,7 +9,12 @@ if not os.path.exists(CSV_PATH):
     print("❌ Fichier corrections.csv introuvable.")
     exit()
 
-df = pd.read_csv(CSV_PATH)
+try:
+    df = pd.read_csv(CSV_PATH, on_bad_lines='skip')
+except Exception as e:
+    print("❌ Erreur de lecture du fichier corrections.csv :", e)
+    exit()
+
 if len(df) < THRESHOLD:
     print(f"⏸ Seulement {len(df)} lignes, seuil de {THRESHOLD} non atteint.")
     exit()
