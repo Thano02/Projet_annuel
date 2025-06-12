@@ -2,8 +2,8 @@ name: Planification clean + train
 
 on:
   schedule:
-    - cron: '0 4 * * 3'     # Tous les mercredis à 4h UTC
-  workflow_dispatch:        # Permet de le lancer manuellement
+    - cron: '0 4 * * 3'     # Chaque mercredi à 4h UTC
+  workflow_dispatch:
 
 jobs:
   clean_and_train:
@@ -23,16 +23,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas opencv-python tqdm ultralytics
 
-    - name: Vérification des dossiers
+    - name: Debug – contenu du dépôt
       run: |
-        echo "🔍 Niveau 0 :"
+        echo "📁 Racine actuelle : $(pwd)"
+        echo "Contenu :"
         ls -l
-        echo "🔍 Niveau 1 (Projet_annuel) :"
-        ls -l Projet_annuel
-        echo "🔍 Niveau 2 (backend/) :"
-        ls -l Projet_annuel/backend
+        echo "backend/ :"
+        ls -l backend
 
-    - name: Lancer check_and_run.py dans Projet_annuel/backend/
-      run: |
-        cd Projet_annuel/backend
-        python check_and_run.py
+    - name: Lancer check_and_run.py
+      run: python backend/check_and_run.py
