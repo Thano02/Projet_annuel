@@ -2,7 +2,7 @@ name: Planification clean + train
 
 on:
   schedule:
-    - cron: '0 4 * * 3'
+    - cron: '0 4 * * 3'     # Chaque mercredi à 4h UTC
   workflow_dispatch:
 
 jobs:
@@ -23,15 +23,14 @@ jobs:
         pip install --upgrade pip
         pip install pandas opencv-python tqdm ultralytics
 
-    - name: Vérifier les chemins
+    - name: Vérifier structure
       run: |
         echo "Racine actuelle : $(pwd)"
-        echo "Contenu ./backend :"
+        echo "Contenu backend/"
         ls -l backend
-        echo "Contenu ./backend/check_and_run.py :"
-        head -n 5 backend/check_and_run.py || true
+        echo "Contenu .github/workflows/"
+        ls -l .github/workflows
 
-    - name: Lancer check_and_run.py
+    - name: Lancer check_and_run.py depuis ./backend
       run: |
-        cd backend
-        python check_and_run.py
+        python backend/check_and_run.py
