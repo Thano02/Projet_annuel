@@ -1,0 +1,6 @@
+timestamp,image_filename,wrong_category,corrected_category
+2025-06-08T12:40:04.269904,capture_20250608_124004.jpg,Verre,Métal
+2025-06-11T16:52:37.972721,capture_20250611_165237.jpg,Métal,Plastique
+2025-06-11T22:32:42.058230,capture_20250611_223242.jpg,crop_20250611_223242.jpg,"[1, 65, 442, 510]",biological,biological,plastic,0.63
+2025-06-11T22:35:49.620540,capture_20250611_223549.jpg,crop_20250611_223549.jpg,"[78, 86, 897, 977]",metal,metal,cardboard,0.62
+2025-06-12T20:06:45.814059,capture_20250612_200645.jpg,crop_20250612_200645.jpg,"[44, 0, 1866, 1080]",metal,biological,biological,0.67
