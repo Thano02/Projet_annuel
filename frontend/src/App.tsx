@@ -42,24 +42,21 @@ export default function App() {
     canvas.height = img.clientHeight;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Ne pas dessiner les boxes, juste activer les zones cliquables invisibles
-    // detections.forEach((box) => {
-    //   const scaleX = canvas.width / box.image_width;
-    //   const scaleY = canvas.height / box.image_height;
+    // Dessiner les cadres (optionnel : commenter si tu veux invisible)
+    detections.forEach((box) => {
+      const scaleX = canvas.width / box.image_width;
+      const scaleY = canvas.height / box.image_height;
 
-    //   const [rawX, rawY, rawW, rawH] = box.bbox;
-    //   const x = rawX * scaleX;
-    //   const y = rawY * scaleY;
-    //   const w = rawW * scaleX;
-    //   const h = rawH * scaleY;
+      const [rawX, rawY, rawW, rawH] = box.bbox;
+      const x = rawX * scaleX;
+      const y = rawY * scaleY;
+      const w = rawW * scaleX;
+      const h = rawH * scaleY;
 
-    //   ctx.strokeStyle = getColor(box.label);
-    //   ctx.lineWidth = 2;
-    //   ctx.strokeRect(x, y, w, h);
-    //   ctx.font = "14px Arial";
-    //   ctx.fillStyle = getColor(box.label);
-    //   ctx.fillText(box.label, x, y - 5);
-    // });
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+    });
   }, [detections]);
 
   useEffect(() => {
@@ -114,7 +111,7 @@ export default function App() {
 
       {selected && (
         <CorrectionDialog
-          objet={selected}
+          detection={selected}
           onClose={() => setSelected(null)}
         />
       )}

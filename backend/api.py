@@ -10,7 +10,9 @@ import contextlib
 import os
 import uuid
 from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,17 +21,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# === Modèle YOLO fine-tuné ===
 model = YOLO("clean_dataset/runs/segment/train/weights/best.pt")
 
+# === Caméra ===
 cap = cv2.VideoCapture(0)
 stop_stream = threading.Event()
 latest_detections = []
 
+# === Dossiers & fichiers ===
 CORRECTIONS_FILE = "corrections.csv"
 CAPTURE_DIR = "captured"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
-# Gestion CTRL+C
+# === Gestion propre de l'arrêt ===
 def handle_exit(sig, frame):
     print("🛑 Arrêt demandé...")
     stop_stream.set()
@@ -37,7 +42,7 @@ def handle_exit(sig, frame):
 
 signal.signal(signal.SIGINT, handle_exit)
 
-# Génère les frames annotées par YOLO
+# === Générateur de frames avec détection YOLO ===
 def gen_frames():
     global latest_detections
     while not stop_stream.is_set():
@@ -45,7 +50,6 @@ def gen_frames():
         if not success:
             break
 
-        # Exécution YOLO sans logs
         with open(os.devnull, 'w') as fnull:
             with contextlib.redirect_stdout(fnull), contextlib.redirect_stderr(fnull):
                 results = model(frame)
@@ -71,6 +75,7 @@ def gen_frames():
         _, buffer = cv2.imencode('.jpg', annotated)
         yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
+# === Endpoints ===
 @app.get("/video_feed")
 async def video_feed():
     return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
@@ -84,7 +89,6 @@ def snapshot():
     success, frame = cap.read()
     if not success:
         return Response(status_code=500)
-
     _, buffer = cv2.imencode('.jpg', frame)
     return Response(content=buffer.tobytes(), media_type="image/jpeg")
 
@@ -92,26 +96,36 @@ def snapshot():
 async def save_correction(data: dict = Body(...)):
     print(f"📩 Correction reçue : {data}")
 
-    # Capture caméra au moment de la validation
+    # Capture image depuis la caméra
     ret, frame = cap.read()
     if not ret:
-        print("❌ Erreur lors de la capture caméra.")
         return JSONResponse(status_code=500, content={"message": "Erreur lors de la capture caméra"})
 
+    # Récupération directe de la détection (plus d'ID à rechercher)
+    detection = data["detection"]
+    x, y, w, h = detection["bbox"]
+    crop = frame[y:y+h, x:x+w]
+
+    # Sauvegarde des fichiers
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"capture_{timestamp}.jpg"
-    filepath = os.path.join(CAPTURE_DIR, filename)
+    full_img_name = f"capture_{timestamp}.jpg"
+    crop_img_name = f"crop_{timestamp}.jpg"
+    full_path = os.path.join(CAPTURE_DIR, full_img_name)
+    crop_path = os.path.join(CAPTURE_DIR, crop_img_name)
 
-    if not cv2.imwrite(filepath, frame):
-        print("❌ Échec d'enregistrement de l'image.")
-        return JSONResponse(status_code=500, content={"message": "Erreur enregistrement image"})
+    cv2.imwrite(full_path, frame)
+    cv2.imwrite(crop_path, crop)
 
-    # Enregistrement dans le CSV
+    # Construction de la ligne de correction
     correction = {
         "timestamp": datetime.now().isoformat(),
-        "image_filename": filename,
+        "image_filename": full_img_name,
+        "crop_filename": crop_img_name,
+        "bbox": detection["bbox"],
+        "predicted_category": detection["label"],
         "wrong_category": data["wrong"],
-        "corrected_category": data["corrected"]
+        "corrected_category": data["corrected"],
+        "confidence": detection["score"]
     }
 
     try:
@@ -125,4 +139,4 @@ async def save_correction(data: dict = Body(...)):
         print(f"❌ Erreur CSV : {e}")
         return JSONResponse(status_code=500, content={"message": "Erreur CSV"})
 
-    return JSONResponse(content={"message": "Correction enregistrée", "filename": filename})
+    return JSONResponse(content={"message": "Correction enregistrée", "crop": crop_img_name})

@@ -2,15 +2,30 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const categories = [
-  { label: "Biologique", emoji: "🍌🥙" },
-  { label: "Carton", emoji: "📦" },
-  { label: "Verre", emoji: "🫙" },
-  { label: "Métal", emoji: "🍴" },
-  { label: "Papier", emoji: "📄" },
-  { label: "Plastique", emoji: "🧴" },
+  { label: "Biologique", value: "biological", emoji: "🍌🥙" },
+  { label: "Carton", value: "cardboard", emoji: "📦" },
+  { label: "Verre", value: "glass", emoji: "🫙" },
+  { label: "Métal", value: "metal", emoji: "🍴" },
+  { label: "Papier", value: "paper", emoji: "📄" },
+  { label: "Plastique", value: "plastic", emoji: "🧴" },
 ];
 
-export function CorrectionDialog({ onClose }: { onClose: () => void }) {
+interface Detection {
+  id: string;
+  label: string;
+  bbox: [number, number, number, number];
+  score: number;
+  image_width: number;
+  image_height: number;
+}
+
+export function CorrectionDialog({
+  onClose,
+  detection,
+}: {
+  onClose: () => void;
+  detection: Detection;
+}) {
   const [step, setStep] = useState<1 | 2>(1);
   const [wrongCategory, setWrongCategory] = useState<string | null>(null);
   const [correctedCategory, setCorrectedCategory] = useState<string | null>(null);
@@ -25,6 +40,7 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           wrong: wrongCategory,
           corrected: correctedCategory,
+          detection: detection, // envoie l’objet complet, plus fiable que juste l’ID
         }),
       });
 
@@ -32,7 +48,7 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
 
       if (!res.ok) {
         console.error("Erreur API :", data);
-        alert("❌ Erreur : " + data.message || "Problème d’envoi.");
+        alert("❌ Erreur : " + (data.message || "Problème d’envoi."));
         return;
       }
 
@@ -57,9 +73,9 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
               {categories.map((cat) => (
                 <button
                   key={cat.label}
-                  onClick={() => setWrongCategory(cat.label)}
+                  onClick={() => setWrongCategory(cat.value)}
                   className={`rounded-xl border p-4 flex items-center justify-center text-lg font-medium transition ${
-                    wrongCategory === cat.label
+                    wrongCategory === cat.value
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 hover:bg-gray-200"
                   }`}
@@ -74,10 +90,7 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
               <Button variant="ghost" onClick={onClose}>
                 Annuler
               </Button>
-              <Button
-                onClick={() => setStep(2)}
-                disabled={!wrongCategory}
-              >
+              <Button onClick={() => setStep(2)} disabled={!wrongCategory}>
                 Valider
               </Button>
             </div>
@@ -94,9 +107,9 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
               {categories.map((cat) => (
                 <button
                   key={cat.label}
-                  onClick={() => setCorrectedCategory(cat.label)}
+                  onClick={() => setCorrectedCategory(cat.value)}
                   className={`rounded-xl border p-4 flex items-center justify-center text-lg font-medium transition ${
-                    correctedCategory === cat.label
+                    correctedCategory === cat.value
                       ? "bg-green-600 text-white"
                       : "bg-gray-100 hover:bg-gray-200"
                   }`}
@@ -111,10 +124,7 @@ export function CorrectionDialog({ onClose }: { onClose: () => void }) {
               <Button variant="ghost" onClick={() => setStep(1)}>
                 Retour
               </Button>
-              <Button
-                onClick={submitCorrection}
-                disabled={!correctedCategory}
-              >
+              <Button onClick={submitCorrection} disabled={!correctedCategory}>
                 Valider
               </Button>
             </div>
