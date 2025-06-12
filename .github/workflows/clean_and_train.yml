@@ -2,16 +2,12 @@ name: Planification clean + train
 
 on:
   schedule:
-    - cron: '0 4 * * 3'     # Tous les mercredis à 4h UTC
-  workflow_dispatch:        # Permet de tester manuellement
+    - cron: '0 4 * * 3'
+  workflow_dispatch:
 
 jobs:
   clean_and_train:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: backend  # ✅ le sous-dossier réel contenant check_and_run.py
 
     steps:
     - name: Cloner le dépôt
@@ -22,15 +18,20 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Installer les dépendances Python
+    - name: Installer les dépendances
       run: |
         pip install --upgrade pip
         pip install pandas opencv-python tqdm ultralytics
 
-    - name: Vérification du contenu
+    - name: Vérifier les chemins
       run: |
-        echo "Contenu backend/"
-        ls -l
+        echo "Racine actuelle : $(pwd)"
+        echo "Contenu ./backend :"
+        ls -l backend
+        echo "Contenu ./backend/check_and_run.py :"
+        head -n 5 backend/check_and_run.py || true
 
     - name: Lancer check_and_run.py
-      run: python check_and_run.py
+      run: |
+        cd backend
+        python check_and_run.py
