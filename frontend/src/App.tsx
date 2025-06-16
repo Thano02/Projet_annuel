@@ -1,119 +1,67 @@
-import { useEffect, useRef, useState } from "react";
-import { CorrectionDialog } from "@/components/CorrectionDialog";
+// frontend/src/App.tsx
+import React, { useEffect, useState } from "react";
 
-interface Detection {
-  id: string;
-  label: string;
-  bbox: [number, number, number, number];
-  score: number;
-  image_width: number;
-  image_height: number;
-}
+const API_URL = "https://fa-garbage-classify.azurewebsites.net/api/classifyTrigger";
 
 export default function App() {
-  const [detections, setDetections] = useState<Detection[]>([]);
-  const [selected, setSelected] = useState<Detection | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const [prediction, setPrediction] = useState<{ label: string; score: number } | null>(null);
 
   useEffect(() => {
-    const fetchDetections = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/detections");
-        const data = await res.json();
-        setDetections(data);
-      } catch (err) {
-        console.error("Erreur fetch detections:", err);
-      }
-    };
+    // On crée video + canvas
+    const video = document.createElement("video");
+    video.width = 320;
+    video.height = 240;
+    video.style.border = "2px solid #555";
 
-    fetchDetections();
-    const interval = setInterval(fetchDetections, 300);
-    return () => clearInterval(interval);
+    const container = document.getElementById("video-container");
+    if (container) container.appendChild(video);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+
+        const intervalId = setInterval(async () => {
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const blob: Blob = await new Promise(r => canvas.toBlob(r, "image/jpeg")!);
+          const buf = await blob.arrayBuffer();
+          const b64 = btoa(
+            Array.from(new Uint8Array(buf))
+                 .map(b => String.fromCharCode(b))
+                 .join("")
+          );
+
+          const resp = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: [b64] })
+          });
+          const json = await resp.json();
+          setPrediction({ label: json.predicted_label, score: json.score });
+        }, 500);
+
+        return () => {
+          clearInterval(intervalId);
+          (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+        };
+      })
+      .catch(err => console.error("Erreur caméra :", err));
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    const img = imgRef.current;
-    if (!canvas || !ctx || !img) return;
-
-    canvas.width = img.clientWidth;
-    canvas.height = img.clientHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Dessiner les cadres (optionnel : commenter si tu veux invisible)
-    detections.forEach((box) => {
-      const scaleX = canvas.width / box.image_width;
-      const scaleY = canvas.height / box.image_height;
-
-      const [rawX, rawY, rawW, rawH] = box.bbox;
-      const x = rawX * scaleX;
-      const y = rawY * scaleY;
-      const w = rawW * scaleX;
-      const h = rawH * scaleY;
-
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, w, h);
-    });
-  }, [detections]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const handleClick = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      for (const box of detections) {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
-
-        const [rawX, rawY, rawW, rawH] = box.bbox;
-        const bx = rawX * scaleX;
-        const by = rawY * scaleY;
-        const bw = rawW * scaleX;
-        const bh = rawH * scaleY;
-
-        if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-          setSelected(box);
-          break;
-        }
-      }
-    };
-
-    canvas.addEventListener("click", handleClick);
-    return () => canvas.removeEventListener("click", handleClick);
-  }, [detections]);
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold text-center mb-4">
-        Déposez votre plateau.
-      </h1>
-
-      <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
-        <img
-          id="stream"
-          ref={imgRef}
-          src="http://localhost:8000/video_feed"
-          alt="Flux caméra"
-          className="rounded-2xl shadow-lg w-full border"
-        />
-        <canvas
-          ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full z-10 pointer-events-auto"
-        />
-      </div>
-
-      {selected && (
-        <CorrectionDialog
-          detection={selected}
-          onClose={() => setSelected(null)}
-        />
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Live Garbage Classifier</h1>
+      <div id="video-container" className="mb-4" />
+      {prediction && (
+        <div className="p-2 bg-gray-800 text-white rounded">
+          Classe : <strong>{prediction.label}</strong> — Confiance : {Math.round(prediction.score * 100)}%
+        </div>
       )}
     </div>
   );
