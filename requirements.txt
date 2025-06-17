@@ -1,6 +1,9 @@
 azure-functions
-azure-identity
-azure-ai-ml
 fastapi
 uvicorn
-requests
+torch==2.0.1
+torchvision==0.15.1
+ultralytics==8.3.141
+opencv-python
+pandas
+tqdm
