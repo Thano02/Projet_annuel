@@ -34,7 +34,7 @@ export function CorrectionDialog({
     if (!wrongCategory || !correctedCategory) return;
 
     try {
-      const res = await fetch("http://localhost:8000/correction", {
+      const res = await fetch("https://fa-garbage-classify.azurewebsites.net/api/correction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
