@@ -15,4 +15,4 @@ RUN pip install pandas opencv-python ultralytics fastapi uvicorn tqdm
 EXPOSE 8000
 
 # Étape 6 : Démarrage du serveur
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
