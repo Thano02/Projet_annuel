@@ -11,8 +11,9 @@ COPY . .
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install pandas opencv-python ultralytics fastapi uvicorn tqdm
 
-# Étape 5 : Exposer le port utilisé par FastAPI
+# 🔧 Ajouter /app au PYTHONPATH pour Docker
+ENV PYTHONPATH="${PYTHONPATH}:/app"
+
 EXPOSE 8000
 
-# Étape 6 : Démarrage du serveur
-CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
