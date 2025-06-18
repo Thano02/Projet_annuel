@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 # === Modèle YOLO fine-tuné ===
-model = YOLO("clean_dataset/runs/segment/train/weights/best.pt")
+model = YOLO("model/yolo_finetune/final_model/best.pt")
 
 # === Caméra ===
 cap = cv2.VideoCapture(0)
