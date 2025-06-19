@@ -10,6 +10,8 @@ interface Detection {
   image_height: number;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
@@ -19,7 +21,7 @@ export default function App() {
   useEffect(() => {
     const fetchDetections = async () => {
       try {
-        const res = await fetch("http://localhost:8000/detections");
+        const res = await fetch(`${API_URL}/detections`);
         const data = await res.json();
         setDetections(data);
       } catch (err) {
@@ -42,7 +44,6 @@ export default function App() {
     canvas.height = img.clientHeight;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Dessiner les cadres (optionnel : commenter si tu veux invisible)
     detections.forEach((box) => {
       const scaleX = canvas.width / box.image_width;
       const scaleY = canvas.height / box.image_height;
@@ -99,7 +100,7 @@ export default function App() {
         <img
           id="stream"
           ref={imgRef}
-          src="http://localhost:8000/video_feed"
+          src={`${API_URL}/video_feed`}
           alt="Flux caméra"
           className="rounded-2xl shadow-lg w-full border"
         />
