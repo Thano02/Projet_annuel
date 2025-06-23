@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Body
 from fastapi.responses import StreamingResponse, JSONResponse, Response
+from starlette.responses import RedirectResponse
 from ultralytics import YOLO
 from datetime import datetime
 import pandas as pd
@@ -26,6 +27,10 @@ model = YOLO("model/yolo_finetune/final_model/best.pt")
 
 # === Caméra ===
 cap = cv2.VideoCapture(0)
+
+if not cap.isOpened():
+    raise RuntimeError("❌ Impossible d'accéder à la caméra (index 0).")
+
 stop_stream = threading.Event()
 latest_detections = []
 
@@ -76,6 +81,9 @@ def gen_frames():
         yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
 # === Endpoints ===
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/video_feed")
 @app.get("/video_feed")
 async def video_feed():
     return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
@@ -96,17 +104,14 @@ def snapshot():
 async def save_correction(data: dict = Body(...)):
     print(f"📩 Correction reçue : {data}")
 
-    # Capture image depuis la caméra
     ret, frame = cap.read()
     if not ret:
         return JSONResponse(status_code=500, content={"message": "Erreur lors de la capture caméra"})
 
-    # Récupération directe de la détection (plus d'ID à rechercher)
     detection = data["detection"]
     x, y, w, h = detection["bbox"]
     crop = frame[y:y+h, x:x+w]
 
-    # Sauvegarde des fichiers
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     full_img_name = f"capture_{timestamp}.jpg"
     crop_img_name = f"crop_{timestamp}.jpg"
@@ -116,7 +121,6 @@ async def save_correction(data: dict = Body(...)):
     cv2.imwrite(full_path, frame)
     cv2.imwrite(crop_path, crop)
 
-    # Construction de la ligne de correction
     correction = {
         "timestamp": datetime.now().isoformat(),
         "image_filename": full_img_name,
