@@ -4,7 +4,9 @@ import sys
 # === Credentials Vercel ===
 VERCEL_TOKEN = "CXSPNzTRVZUgM77Z2u5dTbYF"
 PROJECT_ID = "prj_6we4NVVIhSe13RIeZNMQuPXoHW34"
-PROJECT_NAME = "projetannuel"  # Le nom exact de ton projet Vercel
+
+# === Webhook URL officiel Vercel généré ===
+DEPLOY_HOOK_URL = "https://api.vercel.com/v1/integrations/deploy/prj_6we4NVVIhSe13RIeZNMQuPXoHW34/uzR3q3GPou"
 
 ENV_NAME = "NEXT_PUBLIC_API_URL"
 new_value = sys.argv[1]
@@ -14,7 +16,7 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# 1️⃣ Liste des variables pour récupérer l'ID
+# 1️⃣ Lister les variables existantes pour récupérer l'ID
 list_url = f"https://api.vercel.com/v10/projects/{PROJECT_ID}/env"
 resp_list = requests.get(list_url, headers=headers)
 if resp_list.status_code != 200:
@@ -47,12 +49,10 @@ if resp_update.status_code != 200:
 else:
     print(f"✅ Variable {ENV_NAME} mise à jour avec succès !")
 
-# 3️⃣ Lancer un redeploy automatique propre via integration endpoint
-redeploy_url = f"https://api.vercel.com/v1/projects/{PROJECT_NAME}/deployments"
-resp_redeploy = requests.post(redeploy_url, headers=headers)
-
-if resp_redeploy.status_code != 201:
-    print("❌ Erreur redeploiement :", resp_redeploy.text)
+# 3️⃣ Appel du webhook de redeploiement automatique
+resp_hook = requests.post(DEPLOY_HOOK_URL)
+if resp_hook.status_code != 200:
+    print("❌ Erreur déclenchement redeploy via webhook :", resp_hook.text)
     sys.exit(1)
 else:
-    print("🚀 Redeploiement Vercel déclenché avec succès !")
+    print("🚀 Redeploiement Vercel déclenché avec succès via webhook !")
