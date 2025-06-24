@@ -15,11 +15,32 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
+  const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Appel de l'API toutes les 300ms
+  // Vérification backend au démarrage (loader)
   useEffect(() => {
+    const checkBackend = async () => {
+      let attempts = 0;
+      while (attempts < 20) { // On essaie pendant max 10 sec
+        try {
+          const res = await fetch(`${API_URL}/detections`);
+          if (res.ok) {
+            setBackendReady(true);
+            return;
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500));
+        attempts++;
+      }
+    };
+    checkBackend();
+  }, []);
+
+  // Récupération des détections quand backend prêt
+  useEffect(() => {
+    if (!backendReady) return;
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${API_URL}/detections`);
@@ -33,10 +54,11 @@ export default function App() {
     fetchDetections();
     const interval = setInterval(fetchDetections, 300);
     return () => clearInterval(interval);
-  }, []);
+  }, [backendReady]);
 
-  // Dessin des bounding boxes synchronisé sur le flux vidéo distant
+  // Dessin des bounding boxes
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const video = videoRef.current;
@@ -50,7 +72,6 @@ export default function App() {
       detections.forEach((box) => {
         const scaleX = canvas.width / box.image_width;
         const scaleY = canvas.height / box.image_height;
-
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const x = rawX * scaleX;
         const y = rawY * scaleY;
@@ -66,10 +87,11 @@ export default function App() {
     };
 
     draw();
-  }, [detections]);
+  }, [detections, backendReady]);
 
-  // Gestion du clic utilisateur sur les bounding boxes
+  // Clic sur bounding boxes
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -81,7 +103,6 @@ export default function App() {
       for (const box of detections) {
         const scaleX = canvas.width / box.image_width;
         const scaleY = canvas.height / box.image_height;
-
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const bx = rawX * scaleX;
         const by = rawY * scaleY;
@@ -97,7 +118,15 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections]);
+  }, [detections, backendReady]);
+
+  if (!backendReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        🔄 Initialisation du flux vidéo... (connexion backend en cours)
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
