@@ -18,7 +18,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Récupération des détections toutes les 300ms
+  // Appel de l'API toutes les 300ms
   useEffect(() => {
     const fetchDetections = async () => {
       try {
@@ -35,7 +35,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Dessin des bounding boxes sur le canvas
+  // Dessin des bounding boxes synchronisé sur le flux vidéo distant
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -68,7 +68,7 @@ export default function App() {
     draw();
   }, [detections]);
 
-  // Gestion du clic sur le canvas pour ouvrir la boîte de correction
+  // Gestion du clic utilisateur sur les bounding boxes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
