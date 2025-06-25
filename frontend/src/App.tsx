@@ -14,7 +14,7 @@ export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
   const [apiUrl, setApiUrl] = useState<string | null>(null);
-  const [streamReady, setStreamReady] = useState(false);
+  const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -32,40 +32,29 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Pré-check MJPEG avant montage du <video>
+  // Simple ping backend pour savoir quand démarrer la vidéo
   useEffect(() => {
     if (!apiUrl) return;
-    const checkMJPEG = async () => {
+    const checkBackend = async () => {
       let attempts = 0;
       while (attempts < 30) {
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
-          const res = await fetch(`${apiUrl}/video_feed`, { signal: controller.signal });
-          clearTimeout(timeoutId);
+          const res = await fetch(`${apiUrl}/detections`);
           if (res.ok) {
-            const reader = res.body?.getReader();
-            if (reader) {
-              const { done, value } = await reader.read();
-              if (!done && value) {
-                console.log("Flux MJPEG actif, montage de la vidéo");
-                setStreamReady(true);
-                reader.cancel();
-                return;
-              }
-            }
+            setBackendReady(true);
+            return;
           }
         } catch {}
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 500));
         attempts++;
       }
     };
-    checkMJPEG();
+    checkBackend();
   }, [apiUrl]);
 
   // Récupération des détections toutes les 500ms
   useEffect(() => {
-    if (!apiUrl) return;
+    if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${apiUrl}/detections`);
@@ -79,11 +68,11 @@ export default function App() {
     fetchDetections();
     const interval = setInterval(fetchDetections, 500);
     return () => clearInterval(interval);
-  }, [apiUrl]);
+  }, [backendReady, apiUrl]);
 
   // Dessin des bounding boxes
   useEffect(() => {
-    if (!streamReady) return;
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const video = videoRef.current;
@@ -112,11 +101,11 @@ export default function App() {
     };
 
     draw();
-  }, [detections, streamReady]);
+  }, [detections, backendReady]);
 
-  // Clic sur bounding boxes
+  // Clic bounding boxes
   useEffect(() => {
-    if (!streamReady) return;
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -143,7 +132,7 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, streamReady]);
+  }, [detections, backendReady]);
 
   if (!apiUrl) {
     return (
@@ -153,10 +142,10 @@ export default function App() {
     );
   }
 
-  if (!streamReady) {
+  if (!backendReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        Initialisation du flux vidéo cloud...
+        Initialisation du backend cloud...
       </div>
     );
   }
