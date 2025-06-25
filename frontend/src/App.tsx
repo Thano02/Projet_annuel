@@ -19,7 +19,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Chargement dynamique de la config
+  // Chargement de config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -33,7 +33,7 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Vérification backend au démarrage
+  // Vérifie simplement que le backend est réveillé
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -53,7 +53,7 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Vérification réelle que le flux MJPEG est actif
+  // Vérifie que le flux MJPEG est prêt avant de monter le <video>
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const checkVideoFeed = async () => {
@@ -65,7 +65,6 @@ export default function App() {
           const res = await fetch(`${apiUrl}/video_feed`, { signal: controller.signal });
           clearTimeout(timeoutId);
           if (res.ok) {
-            console.log("Flux MJPEG détecté actif");
             setVideoFeedReady(true);
             return;
           }
@@ -77,7 +76,7 @@ export default function App() {
     checkVideoFeed();
   }, [backendReady, apiUrl]);
 
-  // Récupération des détections en continu
+  // Récupération des détections toutes les 500ms
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -95,7 +94,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Dessin bounding boxes
+  // Dessin des bounding boxes sur le canvas
   useEffect(() => {
     if (!videoFeedReady) return;
     const canvas = canvasRef.current;
@@ -128,7 +127,7 @@ export default function App() {
     draw();
   }, [detections, videoFeedReady]);
 
-  // Clic bounding boxes
+  // Gestion des clics sur bounding boxes
   useEffect(() => {
     if (!videoFeedReady) return;
     const canvas = canvasRef.current;
