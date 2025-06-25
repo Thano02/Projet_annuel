@@ -10,22 +10,36 @@ interface Detection {
   image_height: number;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
   const [backendReady, setBackendReady] = useState(false);
+  const [apiUrl, setApiUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Chargement dynamique de la config
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const res = await fetch("/config.json");
+        const data = await res.json();
+        setApiUrl(data.API_URL);
+      } catch (err) {
+        console.error("Erreur chargement config.json", err);
+      }
+    };
+    loadConfig();
+  }, []);
+
   // Vérification backend au démarrage (loader)
   useEffect(() => {
+    if (!apiUrl) return;
     const checkBackend = async () => {
       let attempts = 0;
-      while (attempts < 20) { // On essaie pendant max 10 sec
+      while (attempts < 20) {
         try {
-          const res = await fetch(`${API_URL}/detections`);
+          const res = await fetch(`${apiUrl}/detections`);
           if (res.ok) {
             setBackendReady(true);
             return;
@@ -36,14 +50,14 @@ export default function App() {
       }
     };
     checkBackend();
-  }, []);
+  }, [apiUrl]);
 
   // Récupération des détections quand backend prêt
   useEffect(() => {
-    if (!backendReady) return;
+    if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
       try {
-        const res = await fetch(`${API_URL}/detections`);
+        const res = await fetch(`${apiUrl}/detections`);
         const data = await res.json();
         setDetections(data);
       } catch (err) {
@@ -54,7 +68,7 @@ export default function App() {
     fetchDetections();
     const interval = setInterval(fetchDetections, 300);
     return () => clearInterval(interval);
-  }, [backendReady]);
+  }, [backendReady, apiUrl]);
 
   // Dessin des bounding boxes
   useEffect(() => {
@@ -120,6 +134,14 @@ export default function App() {
     return () => canvas.removeEventListener("click", handleClick);
   }, [detections, backendReady]);
 
+  if (!apiUrl) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        🔄 Chargement configuration...
+      </div>
+    );
+  }
+
   if (!backendReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
@@ -141,7 +163,7 @@ export default function App() {
           autoPlay
           muted
           playsInline
-          src={`${API_URL}/video_feed`}
+          src={`${apiUrl}/video_feed`}
           className="rounded-2xl shadow-lg w-full border"
         />
         <canvas
