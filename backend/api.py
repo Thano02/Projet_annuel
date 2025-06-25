@@ -25,7 +25,9 @@ app.add_middleware(
 )
 
 # === Modèle YOLO fine-tuné ===
-model = YOLO("model/yolo_finetune/final_model/best.pt")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model", "yolo_finetune", "final_model", "best.pt")
+model = YOLO(MODEL_PATH)
 
 # === Dossiers & fichiers ===
 CORRECTIONS_FILE = "corrections.csv"
