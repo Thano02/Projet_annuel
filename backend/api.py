@@ -42,7 +42,10 @@ current_frame = None
 @app.post("/upload_frame")
 async def upload_frame(file: UploadFile):
     global current_frame, latest_detections
+
     contents = await file.read()
+    print(f"✅ Reçu une frame de {len(contents)} octets sur /upload_frame")
+
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
