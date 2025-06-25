@@ -16,7 +16,7 @@ export default function App() {
   const [apiUrl, setApiUrl] = useState<string | null>(null);
   const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   // Chargement config.json
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Simple ping backend pour savoir quand démarrer la vidéo
+  // Ping backend (dès qu'il répond, on monte l'image MJPEG)
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -75,12 +75,12 @@ export default function App() {
     if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    const video = videoRef.current;
-    if (!canvas || !ctx || !video) return;
+    const img = imgRef.current;
+    if (!canvas || !ctx || !img) return;
 
     const draw = () => {
-      canvas.width = video.clientWidth;
-      canvas.height = video.clientHeight;
+      canvas.width = img.clientWidth;
+      canvas.height = img.clientHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       detections.forEach((box) => {
@@ -103,7 +103,7 @@ export default function App() {
     draw();
   }, [detections, backendReady]);
 
-  // Clic bounding boxes
+  // Gestion des clics sur les bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -157,13 +157,10 @@ export default function App() {
       </h1>
 
       <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
-        <video
-          id="stream"
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
+        <img
+          ref={imgRef}
           src={`${apiUrl}/video_feed`}
+          alt="Flux vidéo"
           className="rounded-2xl shadow-lg w-full border"
         />
         <canvas
