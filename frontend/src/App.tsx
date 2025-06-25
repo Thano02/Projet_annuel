@@ -13,13 +13,12 @@ interface Detection {
 export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
-  const [backendReady, setBackendReady] = useState(false);
-  const [videoFeedReady, setVideoFeedReady] = useState(false);
   const [apiUrl, setApiUrl] = useState<string | null>(null);
+  const [streamReady, setStreamReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Chargement de config.json
+  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -33,52 +32,40 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Vérifie simplement que le backend est réveillé
+  // Pré-check MJPEG avant montage du <video>
   useEffect(() => {
     if (!apiUrl) return;
-    const checkBackend = async () => {
+    const checkMJPEG = async () => {
       let attempts = 0;
-      while (attempts < 20) {
-        try {
-          const res = await fetch(`${apiUrl}/detections`);
-          if (res.ok) {
-            setBackendReady(true);
-            return;
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 500));
-        attempts++;
-      }
-    };
-    checkBackend();
-  }, [apiUrl]);
-
-  // Vérifie que le flux MJPEG est prêt avant de monter le <video>
-  useEffect(() => {
-    if (!backendReady || !apiUrl) return;
-    const checkVideoFeed = async () => {
-      let attempts = 0;
-      while (attempts < 20) {
+      while (attempts < 30) {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);
           const res = await fetch(`${apiUrl}/video_feed`, { signal: controller.signal });
           clearTimeout(timeoutId);
           if (res.ok) {
-            setVideoFeedReady(true);
-            return;
+            const reader = res.body?.getReader();
+            if (reader) {
+              const { done, value } = await reader.read();
+              if (!done && value) {
+                console.log("Flux MJPEG actif, montage de la vidéo");
+                setStreamReady(true);
+                reader.cancel();
+                return;
+              }
+            }
           }
         } catch {}
         await new Promise((r) => setTimeout(r, 1000));
         attempts++;
       }
     };
-    checkVideoFeed();
-  }, [backendReady, apiUrl]);
+    checkMJPEG();
+  }, [apiUrl]);
 
   // Récupération des détections toutes les 500ms
   useEffect(() => {
-    if (!backendReady || !apiUrl) return;
+    if (!apiUrl) return;
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${apiUrl}/detections`);
@@ -92,11 +79,11 @@ export default function App() {
     fetchDetections();
     const interval = setInterval(fetchDetections, 500);
     return () => clearInterval(interval);
-  }, [backendReady, apiUrl]);
+  }, [apiUrl]);
 
-  // Dessin des bounding boxes sur le canvas
+  // Dessin des bounding boxes
   useEffect(() => {
-    if (!videoFeedReady) return;
+    if (!streamReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const video = videoRef.current;
@@ -125,11 +112,11 @@ export default function App() {
     };
 
     draw();
-  }, [detections, videoFeedReady]);
+  }, [detections, streamReady]);
 
-  // Gestion des clics sur bounding boxes
+  // Clic sur bounding boxes
   useEffect(() => {
-    if (!videoFeedReady) return;
+    if (!streamReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -156,28 +143,20 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, videoFeedReady]);
+  }, [detections, streamReady]);
 
   if (!apiUrl) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        🔄 Chargement configuration...
+        Chargement configuration...
       </div>
     );
   }
 
-  if (!backendReady) {
+  if (!streamReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        🔄 Initialisation du backend cloud...
-      </div>
-    );
-  }
-
-  if (!videoFeedReady) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        🔄 Synchronisation flux vidéo cloud...
+        Initialisation du flux vidéo cloud...
       </div>
     );
   }
