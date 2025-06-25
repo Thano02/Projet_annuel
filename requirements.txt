@@ -8,3 +8,4 @@ opencv-python
 pandas
 tqdm
 python-multipart
+numpy<2
