@@ -157,15 +157,17 @@ export default function App() {
       </h1>
 
       <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
-        <video
-          id="stream"
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          src={`${apiUrl}/video_feed`}
-          className="rounded-2xl shadow-lg w-full border"
-        />
+        {detections.length > 0 && (
+          <video
+            id="stream"
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            src={`${apiUrl}/video_feed`}
+            className="rounded-2xl shadow-lg w-full border"
+          />
+        )}
         <canvas
           ref={canvasRef}
           className="absolute top-0 left-0 w-full h-full z-10 pointer-events-auto"
