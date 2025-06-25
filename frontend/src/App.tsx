@@ -14,6 +14,7 @@ export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
   const [backendReady, setBackendReady] = useState(false);
+  const [videoFeedReady, setVideoFeedReady] = useState(false);
   const [apiUrl, setApiUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -70,9 +71,29 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
+  // Vérifie que le flux /video_feed est actif avant d'afficher la balise video
+  useEffect(() => {
+    if (!backendReady || !apiUrl) return;
+    const checkVideoFeed = async () => {
+      let attempts = 0;
+      while (attempts < 20) {
+        try {
+          const res = await fetch(`${apiUrl}/video_feed`, { method: 'GET' });
+          if (res.ok) {
+            setVideoFeedReady(true);
+            return;
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 1000));
+        attempts++;
+      }
+    };
+    checkVideoFeed();
+  }, [backendReady, apiUrl]);
+
   // Dessin des bounding boxes
   useEffect(() => {
-    if (!backendReady) return;
+    if (!videoFeedReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const video = videoRef.current;
@@ -101,11 +122,11 @@ export default function App() {
     };
 
     draw();
-  }, [detections, backendReady]);
+  }, [detections, videoFeedReady]);
 
   // Clic sur bounding boxes
   useEffect(() => {
-    if (!backendReady) return;
+    if (!videoFeedReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -132,7 +153,7 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, backendReady]);
+  }, [detections, videoFeedReady]);
 
   if (!apiUrl) {
     return (
@@ -145,7 +166,15 @@ export default function App() {
   if (!backendReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        🔄 Initialisation du flux vidéo... (connexion backend en cours)
+        🔄 Initialisation du backend cloud...
+      </div>
+    );
+  }
+
+  if (!videoFeedReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        🔄 Chargement du flux vidéo cloud...
       </div>
     );
   }
@@ -157,17 +186,15 @@ export default function App() {
       </h1>
 
       <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
-        {detections.length > 0 && (
-          <video
-            id="stream"
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            src={`${apiUrl}/video_feed`}
-            className="rounded-2xl shadow-lg w-full border"
-          />
-        )}
+        <video
+          id="stream"
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          src={`${apiUrl}/video_feed`}
+          className="rounded-2xl shadow-lg w-full border"
+        />
         <canvas
           ref={canvasRef}
           className="absolute top-0 left-0 w-full h-full z-10 pointer-events-auto"
