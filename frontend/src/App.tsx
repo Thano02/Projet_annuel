@@ -33,7 +33,7 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Vérification backend au démarrage (loader)
+  // Vérification backend au démarrage
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -53,7 +53,31 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération des détections quand backend prêt
+  // Vérification réelle que le flux MJPEG est actif
+  useEffect(() => {
+    if (!backendReady || !apiUrl) return;
+    const checkVideoFeed = async () => {
+      let attempts = 0;
+      while (attempts < 20) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch(`${apiUrl}/video_feed`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            console.log("Flux MJPEG détecté actif");
+            setVideoFeedReady(true);
+            return;
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 1000));
+        attempts++;
+      }
+    };
+    checkVideoFeed();
+  }, [backendReady, apiUrl]);
+
+  // Récupération des détections en continu
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -67,31 +91,11 @@ export default function App() {
     };
 
     fetchDetections();
-    const interval = setInterval(fetchDetections, 300);
+    const interval = setInterval(fetchDetections, 500);
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Vérifie que le flux /video_feed est actif avant d'afficher la balise video
-  useEffect(() => {
-    if (!backendReady || !apiUrl) return;
-    const checkVideoFeed = async () => {
-      let attempts = 0;
-      while (attempts < 20) {
-        try {
-          const res = await fetch(`${apiUrl}/video_feed`, { method: 'GET' });
-          if (res.ok) {
-            setVideoFeedReady(true);
-            return;
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 1000));
-        attempts++;
-      }
-    };
-    checkVideoFeed();
-  }, [backendReady, apiUrl]);
-
-  // Dessin des bounding boxes
+  // Dessin bounding boxes
   useEffect(() => {
     if (!videoFeedReady) return;
     const canvas = canvasRef.current;
@@ -124,7 +128,7 @@ export default function App() {
     draw();
   }, [detections, videoFeedReady]);
 
-  // Clic sur bounding boxes
+  // Clic bounding boxes
   useEffect(() => {
     if (!videoFeedReady) return;
     const canvas = canvasRef.current;
@@ -174,7 +178,7 @@ export default function App() {
   if (!videoFeedReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        🔄 Chargement du flux vidéo cloud...
+        🔄 Synchronisation flux vidéo cloud...
       </div>
     );
   }
