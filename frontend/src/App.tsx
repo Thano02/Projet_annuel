@@ -17,8 +17,8 @@ export default function App() {
   const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -32,7 +32,6 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Ping backend (dès qu'il répond, on monte l'image MJPEG)
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -52,7 +51,6 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération des détections toutes les 500ms
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -70,13 +68,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
-    if (!canvas || !ctx || !img) return;
+    if (!canvas || !ctx || !img || !imgDims.width || !imgDims.height) return;
 
     const draw = () => {
       canvas.width = img.clientWidth;
@@ -84,8 +81,8 @@ export default function App() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       detections.forEach((box) => {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
+        const scaleX = canvas.width / imgDims.width;
+        const scaleY = canvas.height / imgDims.height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const x = rawX * scaleX;
         const y = rawY * scaleY;
@@ -95,15 +92,16 @@ export default function App() {
         ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+        ctx.fillRect(x, y, w, h);
       });
 
       requestAnimationFrame(draw);
     };
 
     draw();
-  }, [detections, backendReady]);
+  }, [detections, backendReady, imgDims]);
 
-  // Gestion des clics sur les bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -115,8 +113,8 @@ export default function App() {
       const y = e.clientY - rect.top;
 
       for (const box of detections) {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
+        const scaleX = canvas.width / imgDims.width;
+        const scaleY = canvas.height / imgDims.height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const bx = rawX * scaleX;
         const by = rawY * scaleY;
@@ -132,7 +130,7 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, backendReady]);
+  }, [detections, backendReady, imgDims]);
 
   if (!apiUrl) {
     return (
@@ -156,12 +154,16 @@ export default function App() {
         Déposez votre plateau.
       </h1>
 
-      <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
+      <div className="flex justify-center mb-8 relative max-w-[1000px] mx-auto">
         <img
           ref={imgRef}
           src={`${apiUrl}/video_feed`}
           alt="Flux vidéo"
-          className="rounded-2xl shadow-lg w-full h-auto object-contain border"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
+          }}
+          className="rounded-2xl shadow-lg max-h-[600px] w-auto border object-contain"
         />
         <canvas
           ref={canvasRef}
