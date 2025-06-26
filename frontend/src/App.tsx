@@ -17,8 +17,8 @@ export default function App() {
   const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
-  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -32,7 +32,6 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Ping backend (dès qu'il répond, on monte l'image MJPEG)
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -52,7 +51,6 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération des détections toutes les 500ms
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -70,7 +68,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -79,13 +76,14 @@ export default function App() {
     if (!canvas || !ctx || !img) return;
 
     const draw = () => {
+      const { width: imgW, height: imgH } = imgDims;
       canvas.width = img.clientWidth;
       canvas.height = img.clientHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       detections.forEach((box) => {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
+        const scaleX = canvas.width / imgW;
+        const scaleY = canvas.height / imgH;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const x = rawX * scaleX;
         const y = rawY * scaleY;
@@ -101,9 +99,8 @@ export default function App() {
     };
 
     draw();
-  }, [detections, backendReady]);
+  }, [detections, backendReady, imgDims]);
 
-  // Gestion des clics sur les bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -115,8 +112,8 @@ export default function App() {
       const y = e.clientY - rect.top;
 
       for (const box of detections) {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
+        const scaleX = canvas.width / imgDims.width;
+        const scaleY = canvas.height / imgDims.height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const bx = rawX * scaleX;
         const by = rawY * scaleY;
@@ -132,36 +129,30 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, backendReady]);
+  }, [detections, backendReady, imgDims]);
 
   if (!apiUrl) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        Chargement configuration...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Chargement configuration...</div>;
   }
 
   if (!backendReady) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        Initialisation du backend cloud...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Initialisation du backend cloud...</div>;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold text-center mb-4">
-        Déposez votre plateau.
-      </h1>
+      <h1 className="text-3xl font-bold text-center mb-4">Déposez votre plateau.</h1>
 
       <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
         <img
           ref={imgRef}
           src={`${apiUrl}/flux_video`}
           alt="Flux vidéo"
-          className="rounded-2xl shadow-lg w-full border"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
+          }}
+          className="rounded-2xl shadow-lg w-full border object-contain"
         />
         <canvas
           ref={canvasRef}
@@ -169,12 +160,7 @@ export default function App() {
         />
       </div>
 
-      {selected && (
-        <CorrectionDialog
-          detection={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      {selected && <CorrectionDialog detection={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
