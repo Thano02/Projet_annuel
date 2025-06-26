@@ -154,7 +154,7 @@ export default function App() {
         Déposez votre plateau.
       </h1>
 
-      <div className="flex justify-center mb-8 relative max-w-[1000px] mx-auto">
+      <div className="flex justify-center mb-8 relative w-full mx-auto">
         <img
           ref={imgRef}
           src={`${apiUrl}/video_feed`}
@@ -163,7 +163,7 @@ export default function App() {
             const img = e.currentTarget;
             setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
           }}
-          className="rounded-2xl shadow-lg max-h-[800px] w-auto border object-contain"
+          className="rounded-2xl shadow-lg max-h-[1000px] w-auto border object-contain"
         />
         <canvas
           ref={canvasRef}
