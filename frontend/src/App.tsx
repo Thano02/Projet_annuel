@@ -163,7 +163,7 @@ export default function App() {
             const img = e.currentTarget;
             setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
           }}
-          className="rounded-2xl shadow-lg max-h-[900px] w-auto border object-contain"
+          className="rounded-2xl shadow-lg max-h-[800px] w-auto border object-contain"
         />
         <canvas
           ref={canvasRef}
