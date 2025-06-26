@@ -73,6 +73,7 @@ def yolo_worker():
         frame_queue.task_done()
 
 threading.Thread(target=yolo_worker, daemon=True).start()
+print("🧵 Thread lancé")
 
 @app.post("/upload_frame")
 async def upload_frame(file: UploadFile):
