@@ -22,32 +22,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Chargement du modèle YOLO fine-tuné
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "yolo_finetune", "final_model", "best.pt")
 model = YOLO(MODEL_PATH)
 
-# Variables globales
 current_frame = None
 latest_detections = []
 frame_queue = queue.Queue()
 
-# Dossier pour corrections
 CAPTURE_DIR = "captured"
 CORRECTIONS_FILE = "corrections.csv"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
-# Worker YOLO
 def yolo_worker():
     global latest_detections
+    print("🚀 YOLO worker démarré")
     while True:
         frame = frame_queue.get()
+        if frame is None:
+            print("⚠️ Frame vide ignorée")
+            frame_queue.task_done()
+            continue
+
         try:
             results = model(frame)
             detections = []
             height, width, _ = frame.shape
             boxes = results[0].boxes.data.tolist()
             names = results[0].names
+
+            print(f"🔎 {len(boxes)} détections trouvées")
 
             for box in boxes:
                 x1, y1, x2, y2, score, class_id = box
@@ -62,12 +66,12 @@ def yolo_worker():
                 })
 
             latest_detections = detections
-        except Exception as e:
-            print(f"❌ Erreur YOLO : {e}")
-        finally:
-            frame_queue.task_done()
 
-# Thread de détection YOLO
+        except Exception as e:
+            print(f"❌ Erreur YOLO: {e}")
+
+        frame_queue.task_done()
+
 threading.Thread(target=yolo_worker, daemon=True).start()
 
 @app.post("/upload_frame")
@@ -76,10 +80,6 @@ async def upload_frame(file: UploadFile):
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    if frame is None:
-        return JSONResponse(status_code=400, content={"message": "Frame invalide"})
-
     current_frame = frame
     frame_queue.put(frame)
     print(f"✅ Reçu une frame de {len(contents)} octets")
@@ -95,11 +95,12 @@ async def video_feed():
                     x, y, w, h = det["bbox"]
                     cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
                     cv2.putText(annotated_frame, det["label"], (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                 ret, buffer = cv2.imencode('.jpg', annotated_frame)
-                if ret:
-                    yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-            time.sleep(0.05)
+                frame_bytes = buffer.tobytes()
+                yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            else:
+                time.sleep(0.1)
     return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/detections")
