@@ -81,8 +81,8 @@ export default function App() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       detections.forEach((box) => {
-        const scaleX = canvas.width / imgDims.width;
-        const scaleY = canvas.height / imgDims.height;
+        const scaleX = canvas.width / box.image_width;
+        const scaleY = canvas.height / box.image_height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const x = rawX * scaleX;
         const y = rawY * scaleY;
@@ -95,7 +95,6 @@ export default function App() {
         ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.fillRect(x, y, w, h);
 
-        // Affichage du label
         ctx.fillStyle = "red";
         ctx.font = "16px Arial";
         ctx.fillText(box.label, x, y - 5);
