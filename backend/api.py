@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime
 import pandas as pd
 
+# Initialisation FastAPI
 app = FastAPI()
 
 app.add_middleware(
@@ -22,36 +23,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Chargement du modèle YOLO fine-tuné
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "yolo_finetune", "final_model", "best.pt")
 model = YOLO(MODEL_PATH)
 
+# Variables globales
 current_frame = None
 latest_detections = []
 frame_queue = queue.Queue()
 
+# Dossier pour corrections
 CAPTURE_DIR = "captured"
 CORRECTIONS_FILE = "corrections.csv"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
+# Worker YOLO en tâche de fond
 def yolo_worker():
     global latest_detections
     print("🚀 YOLO worker démarré")
     while True:
         frame = frame_queue.get()
-        if frame is None:
-            print("⚠️ Frame vide ignorée")
-            frame_queue.task_done()
-            continue
-
+        print("📥 Nouvelle frame reçue dans le worker")
         try:
             results = model(frame)
             detections = []
             height, width, _ = frame.shape
             boxes = results[0].boxes.data.tolist()
             names = results[0].names
-
-            print(f"🔎 {len(boxes)} détections trouvées")
 
             for box in boxes:
                 x1, y1, x2, y2, score, class_id = box
@@ -66,26 +65,33 @@ def yolo_worker():
                 })
 
             latest_detections = detections
-
         except Exception as e:
-            print(f"❌ Erreur YOLO: {e}")
+            print(f"❌ Erreur dans le worker YOLO : {e}")
+        finally:
+            frame_queue.task_done()
 
-        frame_queue.task_done()
-
+# Lancement du worker YOLO en background
 threading.Thread(target=yolo_worker, daemon=True).start()
 print("🧵 Thread lancé")
 
+# Upload des frames (uploader_local.py)
 @app.post("/upload_frame")
 async def upload_frame(file: UploadFile):
     global current_frame
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    print(f"✅ Reçu une frame de {len(contents)} octets")
+    print(f"🖼️ Frame shape : {frame.shape if frame is not None else 'None'}")
+
     current_frame = frame
     frame_queue.put(frame)
-    print(f"✅ Reçu une frame de {len(contents)} octets")
+    print("📨 Frame envoyée dans la file de traitement")
+
     return {"status": "ok"}
 
+# Streaming MJPEG pour le frontend
 @app.get("/video_feed")
 async def video_feed():
     def generate():
@@ -95,8 +101,7 @@ async def video_feed():
                 for det in latest_detections:
                     x, y, w, h = det["bbox"]
                     cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                    cv2.putText(annotated_frame, det["label"], (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    cv2.putText(annotated_frame, det["label"], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                 ret, buffer = cv2.imencode('.jpg', annotated_frame)
                 frame_bytes = buffer.tobytes()
                 yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
@@ -104,10 +109,12 @@ async def video_feed():
                 time.sleep(0.1)
     return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+# Récupération des détections côté frontend
 @app.get("/detections")
 async def get_detections():
     return JSONResponse(content=latest_detections)
 
+# Correction utilisateur (facultatif, on garde)
 @app.post("/correction")
 async def save_correction(data: dict = Body(...)):
     if current_frame is None:
@@ -116,7 +123,7 @@ async def save_correction(data: dict = Body(...)):
     frame = current_frame.copy()
     detection = data["detection"]
     x, y, w, h = detection["bbox"]
-    crop = frame[y:y + h, x:x + w]
+    crop = frame[y:y+h, x:x+w]
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     full_img_name = f"capture_{timestamp}.jpg"
