@@ -161,7 +161,7 @@ export default function App() {
           ref={imgRef}
           src={`${apiUrl}/video_feed`}
           alt="Flux vidéo"
-          className="rounded-2xl shadow-lg w-full border"
+          className="rounded-2xl shadow-lg w-full h-auto object-contain border"
         />
         <canvas
           ref={canvasRef}
