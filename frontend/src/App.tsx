@@ -159,7 +159,7 @@ export default function App() {
       <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
         <img
           ref={imgRef}
-          src={`${apiUrl}/video_feed`}
+          src={`${apiUrl}/flux_video`}
           alt="Flux vidéo"
           className="rounded-2xl shadow-lg w-full border"
         />
