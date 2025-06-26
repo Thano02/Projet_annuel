@@ -12,7 +12,6 @@ import uuid
 from datetime import datetime
 import pandas as pd
 
-# Initialisation FastAPI
 app = FastAPI()
 
 app.add_middleware(
@@ -23,75 +22,75 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Chargement du modèle YOLO fine-tuné
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "yolo_finetune", "final_model", "best.pt")
 model = YOLO(MODEL_PATH)
 
-# Variables globales
 current_frame = None
 latest_detections = []
 frame_queue = queue.Queue()
 
-# Dossier pour corrections
 CAPTURE_DIR = "captured"
 CORRECTIONS_FILE = "corrections.csv"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
-# Worker YOLO en tâche de fond
+# === WORKER YOLO ===
 def yolo_worker():
     global latest_detections
     print("🚀 YOLO worker démarré")
     while True:
         frame = frame_queue.get()
-        print("📥 Nouvelle frame reçue dans le worker")
         try:
+            print("📥 Nouvelle frame reçue dans le worker")
             results = model(frame)
+            print("✅ Inférence YOLO terminée")
+
             detections = []
             height, width, _ = frame.shape
             boxes = results[0].boxes.data.tolist()
             names = results[0].names
 
+            print(f"📦 Détections brutes : {len(boxes)}")
+
             for box in boxes:
-                x1, y1, x2, y2, score, class_id = box
-                label = names[int(class_id)]
-                detections.append({
-                    "id": str(uuid.uuid4()),
-                    "label": label,
-                    "score": round(score, 2),
-                    "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
-                    "image_width": width,
-                    "image_height": height
-                })
+                try:
+                    x1, y1, x2, y2, score, class_id = box
+                    label = names[int(class_id)] if int(class_id) in names else f"class_{int(class_id)}"
+                    det = {
+                        "id": str(uuid.uuid4()),
+                        "label": label,
+                        "score": round(score, 2),
+                        "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
+                        "image_width": width,
+                        "image_height": height
+                    }
+                    detections.append(det)
+                    print(f"➡️ {label} ({score:.2f}) @ [{x1},{y1},{x2},{y2}]")
+                except Exception as e:
+                    print(f"❌ Erreur dans une box : {e}")
 
             latest_detections = detections
         except Exception as e:
-            print(f"❌ Erreur dans le worker YOLO : {e}")
+            print(f"❌ Erreur YOLO inference : {e}")
         finally:
             frame_queue.task_done()
 
-# Lancement du worker YOLO en background
 threading.Thread(target=yolo_worker, daemon=True).start()
 print("🧵 Thread lancé")
 
-# Upload des frames (uploader_local.py)
 @app.post("/upload_frame")
 async def upload_frame(file: UploadFile):
     global current_frame
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    print(f"✅ Reçu une frame de {len(contents)} octets")
-    print(f"🖼️ Frame shape : {frame.shape if frame is not None else 'None'}")
-
     current_frame = frame
+    print(f"✅ Reçu une frame de {len(contents)} octets")
+    print(f"🖼️ Frame shape : {frame.shape}")
     frame_queue.put(frame)
     print("📨 Frame envoyée dans la file de traitement")
-
     return {"status": "ok"}
 
-# Streaming MJPEG pour le frontend
 @app.get("/video_feed")
 async def video_feed():
     def generate():
@@ -109,12 +108,10 @@ async def video_feed():
                 time.sleep(0.1)
     return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
-# Récupération des détections côté frontend
 @app.get("/detections")
 async def get_detections():
     return JSONResponse(content=latest_detections)
 
-# Correction utilisateur (facultatif, on garde)
 @app.post("/correction")
 async def save_correction(data: dict = Body(...)):
     if current_frame is None:
