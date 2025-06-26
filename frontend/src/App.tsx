@@ -19,7 +19,6 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -33,7 +32,6 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Vérification du backend
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -53,7 +51,6 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération régulière des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -71,7 +68,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -85,8 +81,8 @@ export default function App() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       detections.forEach((box) => {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
+        const scaleX = canvas.width / imgDims.width;
+        const scaleY = canvas.height / imgDims.height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const x = rawX * scaleX;
         const y = rawY * scaleY;
@@ -98,6 +94,11 @@ export default function App() {
         ctx.strokeRect(x, y, w, h);
         ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.fillRect(x, y, w, h);
+
+        // Affichage du label
+        ctx.fillStyle = "red";
+        ctx.font = "16px Arial";
+        ctx.fillText(box.label, x, y - 5);
       });
 
       requestAnimationFrame(draw);
@@ -106,7 +107,6 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
-  // Clic sur les bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -118,8 +118,8 @@ export default function App() {
       const y = e.clientY - rect.top;
 
       for (const box of detections) {
-        const scaleX = canvas.width / box.image_width;
-        const scaleY = canvas.height / box.image_height;
+        const scaleX = canvas.width / imgDims.width;
+        const scaleY = canvas.height / imgDims.height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const bx = rawX * scaleX;
         const by = rawY * scaleY;
