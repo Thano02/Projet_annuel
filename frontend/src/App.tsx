@@ -15,10 +15,11 @@ export default function App() {
   const [selected, setSelected] = useState<Detection | null>(null);
   const [apiUrl, setApiUrl] = useState<string | null>(null);
   const [backendReady, setBackendReady] = useState(false);
+  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
+  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -32,6 +33,7 @@ export default function App() {
     loadConfig();
   }, []);
 
+  // Vérifie si le backend est disponible
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -51,6 +53,7 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
+  // Récupération régulière des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -68,6 +71,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
+  // Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -102,6 +106,7 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
+  // Clic sur les boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -150,9 +155,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold text-center mb-4">
-        Déposez votre plateau.
-      </h1>
+      <h1 className="text-3xl font-bold text-center mb-4">Déposez votre plateau.</h1>
 
       <div className="flex justify-center mb-8 relative w-full mx-auto">
         <img
@@ -163,7 +166,7 @@ export default function App() {
             const img = e.currentTarget;
             setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
           }}
-          className="rounded-2xl shadow-lg max-h-[1000px] w-auto border object-contain"
+          className="rounded-2xl shadow-lg max-h-[720px] w-auto border object-contain"
         />
         <canvas
           ref={canvasRef}
@@ -172,10 +175,7 @@ export default function App() {
       </div>
 
       {selected && (
-        <CorrectionDialog
-          detection={selected}
-          onClose={() => setSelected(null)}
-        />
+        <CorrectionDialog detection={selected} onClose={() => setSelected(null)} />
       )}
     </div>
   );
