@@ -17,9 +17,8 @@ export default function App() {
   const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
 
-  // Charger la config
+  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -33,7 +32,7 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Vérifier backend prêt
+  // Ping backend (dès qu'il répond, on monte l'image MJPEG)
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -53,7 +52,7 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Récupérer détections périodiques
+  // Récupération des détections toutes les 500ms
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -65,13 +64,15 @@ export default function App() {
         console.error("Erreur fetch detections:", err);
       }
     };
+
     fetchDetections();
     const interval = setInterval(fetchDetections, 500);
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Dessiner les bounding boxes
+  // Dessin des bounding boxes
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
@@ -100,10 +101,11 @@ export default function App() {
     };
 
     draw();
-  }, [detections, imgDims]);
+  }, [detections, backendReady]);
 
-  // Gestion des clics sur les boxes
+  // Gestion des clics sur les bounding boxes
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -130,30 +132,36 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections]);
+  }, [detections, backendReady]);
 
   if (!apiUrl) {
-    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Chargement configuration...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        Chargement configuration...
+      </div>
+    );
   }
 
   if (!backendReady) {
-    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Initialisation du backend cloud...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        Initialisation du backend cloud...
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-3xl font-bold text-center mb-4">Déposez votre plateau.</h1>
+      <h1 className="text-3xl font-bold text-center mb-4">
+        Déposez votre plateau.
+      </h1>
 
       <div className="flex justify-center mb-8 relative w-[1000px] mx-auto">
         <img
           ref={imgRef}
           src={`${apiUrl}/flux_video`}
           alt="Flux vidéo"
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
-          }}
-          className="rounded-2xl shadow-lg w-full border object-contain"
+          className="rounded-2xl shadow-lg w-full h-auto object-contain border"
         />
         <canvas
           ref={canvasRef}
@@ -161,7 +169,12 @@ export default function App() {
         />
       </div>
 
-      {selected && <CorrectionDialog detection={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <CorrectionDialog
+          detection={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }
