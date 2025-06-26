@@ -17,8 +17,9 @@ export default function App() {
   const [backendReady, setBackendReady] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
 
+  // Charger la config
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -32,6 +33,7 @@ export default function App() {
     loadConfig();
   }, []);
 
+  // Vérifier backend prêt
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -51,6 +53,7 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
+  // Récupérer détections périodiques
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
@@ -62,28 +65,26 @@ export default function App() {
         console.error("Erreur fetch detections:", err);
       }
     };
-
     fetchDetections();
     const interval = setInterval(fetchDetections, 500);
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
+  // Dessiner les bounding boxes
   useEffect(() => {
-    if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     if (!canvas || !ctx || !img) return;
 
     const draw = () => {
-      const { width: imgW, height: imgH } = imgDims;
       canvas.width = img.clientWidth;
       canvas.height = img.clientHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       detections.forEach((box) => {
-        const scaleX = canvas.width / imgW;
-        const scaleY = canvas.height / imgH;
+        const scaleX = canvas.width / box.image_width;
+        const scaleY = canvas.height / box.image_height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const x = rawX * scaleX;
         const y = rawY * scaleY;
@@ -99,10 +100,10 @@ export default function App() {
     };
 
     draw();
-  }, [detections, backendReady, imgDims]);
+  }, [detections, imgDims]);
 
+  // Gestion des clics sur les boxes
   useEffect(() => {
-    if (!backendReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -112,8 +113,8 @@ export default function App() {
       const y = e.clientY - rect.top;
 
       for (const box of detections) {
-        const scaleX = canvas.width / imgDims.width;
-        const scaleY = canvas.height / imgDims.height;
+        const scaleX = canvas.width / box.image_width;
+        const scaleY = canvas.height / box.image_height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const bx = rawX * scaleX;
         const by = rawY * scaleY;
@@ -129,7 +130,7 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, backendReady, imgDims]);
+  }, [detections]);
 
   if (!apiUrl) {
     return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Chargement configuration...</div>;
