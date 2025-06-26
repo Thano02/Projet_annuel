@@ -5,3 +5,4 @@ timestamp,image_filename,wrong_category,corrected_category
 2025-06-11T22:35:49.620540,capture_20250611_223549.jpg,crop_20250611_223549.jpg,"[78, 86, 897, 977]",metal,metal,cardboard,0.62
 2025-06-12T20:06:45.814059,capture_20250612_200645.jpg,crop_20250612_200645.jpg,"[44, 0, 1866, 1080]",metal,biological,biological,0.67
 2025-06-24T09:11:47.086139,capture_20250624_091147.jpg,crop_20250624_091147.jpg,"[698, 594, 451, 308]",biological,cardboard,biological,0.51
+2025-06-26T19:08:50.030775,capture_20250626_190850.jpg,crop_20250626_190850.jpg,"[1251, 300, 540, 769]",glass,metal,cardboard,0.53
