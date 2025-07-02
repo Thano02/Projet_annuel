@@ -16,7 +16,6 @@ export default function App() {
   const [apiUrl, setApiUrl] = useState<string | null>(null);
   const [backendReady, setBackendReady] = useState(false);
   const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -34,7 +33,7 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Ping backend (pour valider qu'il est prêt)
+  // Ping backend
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -54,9 +53,10 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération régulière des détections
+  // Récupération des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
+
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${apiUrl}/detections`);
@@ -74,6 +74,7 @@ export default function App() {
 
   // Dessin des bounding boxes
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
@@ -94,23 +95,24 @@ export default function App() {
         const h = rawH * scaleY;
 
         ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
-        ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.fillRect(x, y, w, h);
         ctx.fillStyle = "red";
         ctx.font = "16px Arial";
-        ctx.fillText(box.label, x + 4, y - 8);
+        ctx.fillText(box.label, x, y - 5);
       });
 
       requestAnimationFrame(draw);
     };
 
     draw();
-  }, [detections, imgDims]);
+  }, [detections, backendReady, imgDims]);
 
-  // Gestion clic sur détection
+  // Clics sur les bounding boxes
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -137,15 +139,22 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, imgDims]);
+  }, [detections, backendReady, imgDims]);
 
-  // Affichage des écrans de chargement
   if (!apiUrl) {
-    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Chargement configuration...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        Chargement configuration...
+      </div>
+    );
   }
 
   if (!backendReady) {
-    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Initialisation du backend cloud...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        Initialisation du backend cloud...
+      </div>
+    );
   }
 
   return (
