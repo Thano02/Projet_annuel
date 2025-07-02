@@ -41,37 +41,61 @@ def yolo_worker():
     while True:
         frame = frame_queue.get()
         try:
-            print("📥 Nouvelle frame reçue dans le worker")
+            if frame is None:
+                print("❌ Frame vide (None)")
+                continue
+
+            height, width, _ = frame.shape
+            print(f"🖼️ Frame shape : ({height}, {width}, 3)")
+
+            if height < 100 or width < 100:
+                print("⚠️ Image trop petite, risque de mauvaise détection")
+
+            print("🔍 Lancement YOLO inference...")
             results = model(frame)
             print("✅ Inférence YOLO terminée")
 
+            boxes_data = getattr(results[0].boxes, "data", None)
+            names = getattr(results[0], "names", {})
+
+            if boxes_data is None:
+                print("❌ Aucun résultat (boxes_data est None)")
+                latest_detections = []
+                continue
+
+            print(f"📦 boxes_data type: {type(boxes_data)}, shape: {getattr(boxes_data, 'shape', 'inconnu')}")
+            print(f"📦 Contenu brut : {boxes_data}")
+
             detections = []
-            height, width, _ = frame.shape
-            boxes = results[0].boxes.data.tolist()
-            names = results[0].names
-
-            print(f"📦 Détections brutes : {len(boxes)}")
-
-            for box in boxes:
-                try:
-                    x1, y1, x2, y2, score, class_id = box
-                    label = names[int(class_id)] if int(class_id) in names else f"class_{int(class_id)}"
-                    det = {
-                        "id": str(uuid.uuid4()),
-                        "label": label,
-                        "score": round(score, 2),
-                        "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
-                        "image_width": width,
-                        "image_height": height
-                    }
-                    detections.append(det)
-                    print(f"➡️ {label} ({score:.2f}) @ [{x1},{y1},{x2},{y2}]")
-                except Exception as e:
-                    print(f"❌ Erreur dans une box : {e}")
+            if len(boxes_data) == 0:
+                print("🛑 Aucune détection effectuée (tensor vide)")
+            else:
+                for i, box_tensor in enumerate(boxes_data):
+                    try:
+                        box = box_tensor.tolist()
+                        if len(box) < 6:
+                            print(f"⚠️ Box incomplète : {box}")
+                            continue
+                        x1, y1, x2, y2, score, class_id = box
+                        label = names.get(int(class_id), f"class_{int(class_id)}")
+                        det = {
+                            "id": str(uuid.uuid4()),
+                            "label": label,
+                            "score": round(score, 2),
+                            "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
+                            "image_width": width,
+                            "image_height": height
+                        }
+                        detections.append(det)
+                        print(f"➡️ Détection {i}: {label} ({score:.2f}) @ [{int(x1)}, {int(y1)}, {int(x2)}, {int(y2)}]")
+                    except Exception as e:
+                        print(f"❌ Erreur traitement box {i}: {e}")
 
             latest_detections = detections
+            print(f"📊 Détections totales enregistrées : {len(detections)}")
+
         except Exception as e:
-            print(f"❌ Erreur YOLO inference : {e}")
+            print(f"❌ Erreur générale YOLO : {e}")
         finally:
             frame_queue.task_done()
 
