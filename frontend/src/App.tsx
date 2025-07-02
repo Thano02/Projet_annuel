@@ -20,7 +20,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Charger config.json pour obtenir l'URL backend
+  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -34,11 +34,12 @@ export default function App() {
     loadConfig();
   }, []);
 
-  // Vérifie que le backend est accessible
+  // Ping backend (pour valider qu'il est prêt)
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
-      for (let i = 0; i < 30; i++) {
+      let attempts = 0;
+      while (attempts < 30) {
         try {
           const res = await fetch(`${apiUrl}/detections`);
           if (res.ok) {
@@ -47,15 +48,15 @@ export default function App() {
           }
         } catch {}
         await new Promise((r) => setTimeout(r, 500));
+        attempts++;
       }
     };
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération des détections
+  // Récupération régulière des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
-
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${apiUrl}/detections`);
@@ -93,27 +94,25 @@ export default function App() {
         const h = rawH * scaleY;
 
         ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+        ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-
-        ctx.fillStyle = "rgba(255, 0, 0, 0.25)";
         ctx.fillRect(x, y, w, h);
-
         ctx.fillStyle = "red";
         ctx.font = "16px Arial";
-        ctx.fillText(box.label, x, y - 5);
+        ctx.fillText(box.label, x + 4, y - 8);
       });
 
       requestAnimationFrame(draw);
     };
 
     draw();
-  }, [detections, backendReady, imgDims]);
+  }, [detections, imgDims]);
 
-  // Gestion des clics
+  // Gestion clic sur détection
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !backendReady) return;
+    if (!canvas) return;
 
     const handleClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -138,8 +137,9 @@ export default function App() {
 
     canvas.addEventListener("click", handleClick);
     return () => canvas.removeEventListener("click", handleClick);
-  }, [detections, backendReady, imgDims]);
+  }, [detections, imgDims]);
 
+  // Affichage des écrans de chargement
   if (!apiUrl) {
     return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Chargement configuration...</div>;
   }
@@ -161,7 +161,7 @@ export default function App() {
             const img = e.currentTarget;
             setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
           }}
-          className="rounded-2xl shadow-lg w-full max-h-[90vh] object-contain border"
+          className="rounded-2xl shadow-lg w-full max-h-[80vh] object-contain border"
         />
         <canvas
           ref={canvasRef}
