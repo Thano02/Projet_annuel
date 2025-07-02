@@ -16,9 +16,11 @@ export default function App() {
   const [apiUrl, setApiUrl] = useState<string | null>(null);
   const [backendReady, setBackendReady] = useState(false);
   const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // Charger config.json pour obtenir l'URL backend
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -32,11 +34,11 @@ export default function App() {
     loadConfig();
   }, []);
 
+  // Vérifie que le backend est accessible
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
-      let attempts = 0;
-      while (attempts < 30) {
+      for (let i = 0; i < 30; i++) {
         try {
           const res = await fetch(`${apiUrl}/detections`);
           if (res.ok) {
@@ -45,14 +47,15 @@ export default function App() {
           }
         } catch {}
         await new Promise((r) => setTimeout(r, 500));
-        attempts++;
       }
     };
     checkBackend();
   }, [apiUrl]);
 
+  // Récupération des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
+
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${apiUrl}/detections`);
@@ -68,8 +71,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
+  // Dessin des bounding boxes
   useEffect(() => {
-    if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
@@ -89,10 +92,11 @@ export default function App() {
         const w = rawW * scaleX;
         const h = rawH * scaleY;
 
-        ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
+        ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-        ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
+
+        ctx.fillStyle = "rgba(255, 0, 0, 0.25)";
         ctx.fillRect(x, y, w, h);
 
         ctx.fillStyle = "red";
@@ -106,10 +110,10 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
+  // Gestion des clics
   useEffect(() => {
-    if (!backendReady) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !backendReady) return;
 
     const handleClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -117,8 +121,8 @@ export default function App() {
       const y = e.clientY - rect.top;
 
       for (const box of detections) {
-        const scaleX = canvas.width / imgDims.width;
-        const scaleY = canvas.height / imgDims.height;
+        const scaleX = canvas.width / box.image_width;
+        const scaleY = canvas.height / box.image_height;
         const [rawX, rawY, rawW, rawH] = box.bbox;
         const bx = rawX * scaleX;
         const by = rawY * scaleY;
@@ -137,19 +141,11 @@ export default function App() {
   }, [detections, backendReady, imgDims]);
 
   if (!apiUrl) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        Chargement configuration...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Chargement configuration...</div>;
   }
 
   if (!backendReady) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
-        Initialisation du backend cloud...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen text-xl font-semibold">Initialisation du backend cloud...</div>;
   }
 
   return (
@@ -165,7 +161,7 @@ export default function App() {
             const img = e.currentTarget;
             setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
           }}
-          className="rounded-2xl shadow-lg w-full max-h-[80vh] object-contain border"
+          className="rounded-2xl shadow-lg w-full max-h-[90vh] object-contain border"
         />
         <canvas
           ref={canvasRef}

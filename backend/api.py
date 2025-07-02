@@ -22,99 +22,113 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# === Chargement du modèle YOLO fine-tuné ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model", "yolo_finetune", "final_model", "best.pt")
 model = YOLO(MODEL_PATH)
 
+# === Variables globales ===
 current_frame = None
 latest_detections = []
 frame_queue = queue.Queue()
 
+# === Fichiers de correction ===
 CAPTURE_DIR = "captured"
 CORRECTIONS_FILE = "corrections.csv"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
-# === WORKER YOLO ===
+# === Worker YOLO (background thread) ===
 def yolo_worker():
     global latest_detections
     print("🚀 YOLO worker démarré")
+
     while True:
-        frame = frame_queue.get()
         try:
-            if frame is None:
-                print("❌ Frame vide (None)")
-                continue
+            frame = frame_queue.get()
+            print("📥 Nouvelle frame reçue dans le worker")
 
-            height, width, _ = frame.shape
-            print(f"🖼️ Frame shape : ({height}, {width}, 3)")
+            # Shape de l'image
+            print(f"🖼️ Frame shape : {frame.shape}")
 
-            if height < 100 or width < 100:
-                print("⚠️ Image trop petite, risque de mauvaise détection")
-
-            print("🔍 Lancement YOLO inference...")
-            results = model(frame)
-            print("✅ Inférence YOLO terminée")
-
-            boxes_data = getattr(results[0].boxes, "data", None)
-            names = getattr(results[0], "names", {})
-
-            if boxes_data is None:
-                print("❌ Aucun résultat (boxes_data est None)")
+            # Inférence YOLO
+            try:
+                print("🧪 Envoi au modèle YOLO...")
+                results = model(frame)
+                print("✅ Inférence YOLO terminée")
+            except Exception as e:
+                print(f"❌ Erreur pendant l'inférence YOLO : {e}")
                 latest_detections = []
+                frame_queue.task_done()
                 continue
-
-            print(f"📦 boxes_data type: {type(boxes_data)}, shape: {getattr(boxes_data, 'shape', 'inconnu')}")
-            print(f"📦 Contenu brut : {boxes_data}")
 
             detections = []
-            if len(boxes_data) == 0:
-                print("🛑 Aucune détection effectuée (tensor vide)")
-            else:
-                for i, box_tensor in enumerate(boxes_data):
-                    try:
-                        box = box_tensor.tolist()
-                        if len(box) < 6:
-                            print(f"⚠️ Box incomplète : {box}")
-                            continue
-                        x1, y1, x2, y2, score, class_id = box
-                        label = names.get(int(class_id), f"class_{int(class_id)}")
-                        det = {
-                            "id": str(uuid.uuid4()),
-                            "label": label,
-                            "score": round(score, 2),
-                            "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
-                            "image_width": width,
-                            "image_height": height
-                        }
-                        detections.append(det)
-                        print(f"➡️ Détection {i}: {label} ({score:.2f}) @ [{int(x1)}, {int(y1)}, {int(x2)}, {int(y2)}]")
-                    except Exception as e:
-                        print(f"❌ Erreur traitement box {i}: {e}")
+            height, width, _ = frame.shape
+            boxes = results[0].boxes.data.tolist()
+            names = results[0].names
 
-            latest_detections = detections
+            print(f"📦 Nombre de boxes : {len(boxes)}")
+
+            if not boxes:
+                print("⚠️ Aucune détection sur cette frame")
+
+            for box in boxes:
+                try:
+                    x1, y1, x2, y2, score, class_id = box
+                    label = names[int(class_id)]
+                    detections.append({
+                        "id": str(uuid.uuid4()),
+                        "label": label,
+                        "score": round(score, 2),
+                        "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
+                        "image_width": width,
+                        "image_height": height
+                    })
+                except Exception as e:
+                    print(f"❌ Erreur parsing box : {e}")
+
+            # Fallback debug (désactivé)
+            # if not detections:
+            #     print("🧪 Insertion box de test")
+            #     detections.append({
+            #         "id": str(uuid.uuid4()),
+            #         "label": "test",
+            #         "score": 0.99,
+            #         "bbox": [100, 100, 200, 200],
+            #         "image_width": width,
+            #         "image_height": height
+            #     })
+
             print(f"📊 Détections totales enregistrées : {len(detections)}")
-
-        except Exception as e:
-            print(f"❌ Erreur générale YOLO : {e}")
-        finally:
+            latest_detections = detections
             frame_queue.task_done()
 
+        except Exception as e:
+            print(f"❌ Erreur dans le worker YOLO principal : {e}")
+
+# === Démarrage du thread
 threading.Thread(target=yolo_worker, daemon=True).start()
 print("🧵 Thread lancé")
 
+# === Upload depuis uploader_local.py
 @app.post("/upload_frame")
 async def upload_frame(file: UploadFile):
     global current_frame
     contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    current_frame = frame
     print(f"✅ Reçu une frame de {len(contents)} octets")
-    print(f"🖼️ Frame shape : {frame.shape}")
-    frame_queue.put(frame)
-    print("📨 Frame envoyée dans la file de traitement")
-    return {"status": "ok"}
 
+    try:
+        nparr = np.frombuffer(contents, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        current_frame = frame
+        print(f"🖼️ Frame shape : {frame.shape}")
+        frame_queue.put(frame)
+        print("📨 Frame envoyée dans la file de traitement")
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"❌ Erreur décodage image : {e}")
+        return JSONResponse(status_code=500, content={"message": "Erreur décodage image"})
+
+# === Flux MJPEG vidéo
 @app.get("/video_feed")
 async def video_feed():
     def generate():
@@ -132,10 +146,12 @@ async def video_feed():
                 time.sleep(0.1)
     return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+# === Detections vers frontend
 @app.get("/detections")
 async def get_detections():
     return JSONResponse(content=latest_detections)
 
+# === Correction manuelle
 @app.post("/correction")
 async def save_correction(data: dict = Body(...)):
     if current_frame is None:
