@@ -10,66 +10,79 @@ interface Detection {
   image_height: number;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Biologique: "#28a745",
-  Carton: "#ff8c00",
-  Verre: "#007bff",
-  Métal: "#6f42c1",
-  Papier: "#17a2b8",
-  Plastique: "#dc3545",
+const categoryColors: { [key: string]: string } = {
+  Biologique: "green",
+  Carton: "orange",
+  Verre: "blue",
+  Métal: "silver",
+  Papier: "cyan",
+  Plastique: "red"
 };
 
 export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
+  const [apiUrl, setApiUrl] = useState<string | null>(null);
   const [backendReady, setBackendReady] = useState(false);
-  const [imgDims, setImgDims] = useState({ width: 0, height: 0 });
+  const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  const API_URL = "https://turkey-adjusted-namely.ngrok-free.app";
-
-  // Vérification que le backend Colab est prêt
   useEffect(() => {
-    const pingBackend = async () => {
-      for (let i = 0; i < 30; i++) {
-        try {
-          const res = await fetch(`${API_URL}/detections`);
-          if (res.ok) {
-            setBackendReady(true);
-            break;
-          }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 1000));
+    const loadConfig = async () => {
+      try {
+        const res = await fetch("/config.json");
+        const data = await res.json();
+        setApiUrl(data.API_URL);
+      } catch (err) {
+        console.error("Erreur chargement config.json", err);
       }
     };
-    pingBackend();
+    loadConfig();
   }, []);
 
-  // Fetch des détections
   useEffect(() => {
-    if (!backendReady) return;
+    if (!apiUrl) return;
+    const checkBackend = async () => {
+      let attempts = 0;
+      while (attempts < 30) {
+        try {
+          const res = await fetch(`${apiUrl}/detections`);
+          if (res.ok) {
+            setBackendReady(true);
+            return;
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500));
+        attempts++;
+      }
+    };
+    checkBackend();
+  }, [apiUrl]);
+
+  useEffect(() => {
+    if (!backendReady || !apiUrl) return;
     const fetchDetections = async () => {
       try {
-        const res = await fetch(`${API_URL}/detections`);
+        const res = await fetch(`${apiUrl}/detections`);
         const data = await res.json();
         setDetections(data);
       } catch (err) {
         console.error("Erreur fetch detections:", err);
       }
     };
-    fetchDetections();
-    const interval = setInterval(fetchDetections, 1000);
-    return () => clearInterval(interval);
-  }, [backendReady]);
 
-  // Dessin des bounding boxes
+    fetchDetections();
+    const interval = setInterval(fetchDetections, 500);
+    return () => clearInterval(interval);
+  }, [backendReady, apiUrl]);
+
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
-    if (!canvas || !ctx || !img || imgDims.width === 0) return;
+    if (!canvas || !ctx || !img || !imgDims.width || !imgDims.height) return;
 
     const draw = () => {
       canvas.width = img.clientWidth;
@@ -85,14 +98,16 @@ export default function App() {
         const w = rawW * scaleX;
         const h = rawH * scaleY;
 
-        const color = CATEGORY_COLORS[box.label] || "red";
+        const color = categoryColors[box.label] || "red";
+
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-
+        ctx.fillStyle = `${color}33`; // transparence 20%
+        ctx.fillRect(x, y, w, h);
         ctx.fillStyle = color;
         ctx.font = "16px Arial";
-        ctx.fillText(`${box.label} (${box.score})`, x, y - 8);
+        ctx.fillText(`${box.label} (${Math.round(box.score * 100)}%)`, x, y - 8);
       });
 
       requestAnimationFrame(draw);
@@ -101,10 +116,10 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
-  // Gestion des clics
   useEffect(() => {
+    if (!backendReady) return;
     const canvas = canvasRef.current;
-    if (!canvas || !backendReady) return;
+    if (!canvas) return;
 
     const handleClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -131,6 +146,14 @@ export default function App() {
     return () => canvas.removeEventListener("click", handleClick);
   }, [detections, backendReady, imgDims]);
 
+  if (!apiUrl) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
+        Chargement configuration...
+      </div>
+    );
+  }
+
   if (!backendReady) {
     return (
       <div className="flex items-center justify-center min-h-screen text-xl font-semibold">
@@ -140,13 +163,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <h1 className="text-3xl font-bold text-center mb-4">Déposez votre plateau.</h1>
 
       <div className="flex justify-center mb-8 relative max-w-[900px] mx-auto">
         <img
           ref={imgRef}
-          src={`${API_URL}/video_feed`}
+          src={`${apiUrl}/video_feed`}
           alt="Flux vidéo"
           onLoad={(e) => {
             const img = e.currentTarget;
