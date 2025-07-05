@@ -10,13 +10,13 @@ interface Detection {
   image_height: number;
 }
 
-const categoryColors: { [key: string]: string } = {
-  Biologique: "green",
-  Carton: "orange",
-  Verre: "blue",
-  Métal: "silver",
-  Papier: "cyan",
-  Plastique: "red"
+const CATEGORY_COLORS: Record<string, string> = {
+  Biologique: "#1E90FF", // Bleu
+  Carton: "#FFA500",     // Orange
+  Verre: "#32CD32",      // Vert
+  Métal: "#A9A9A9",      // Gris
+  Papier: "#8A2BE2",     // Violet
+  Plastique: "#FF0000",  // Rouge
 };
 
 export default function App() {
@@ -28,6 +28,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -41,6 +42,7 @@ export default function App() {
     loadConfig();
   }, []);
 
+  // Ping backend
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -60,8 +62,10 @@ export default function App() {
     checkBackend();
   }, [apiUrl]);
 
+  // Récupération des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
+
     const fetchDetections = async () => {
       try {
         const res = await fetch(`${apiUrl}/detections`);
@@ -77,6 +81,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
+  // Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -98,16 +103,18 @@ export default function App() {
         const w = rawW * scaleX;
         const h = rawH * scaleY;
 
-        const color = categoryColors[box.label] || "red";
+        const color = CATEGORY_COLORS[box.label] || "red";
 
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-        ctx.fillStyle = `${color}33`; // transparence 20%
+
+        ctx.fillStyle = color + "33"; // transparence
         ctx.fillRect(x, y, w, h);
+
         ctx.fillStyle = color;
         ctx.font = "16px Arial";
-        ctx.fillText(`${box.label} (${Math.round(box.score * 100)}%)`, x, y - 8);
+        ctx.fillText(`${box.label} (${box.score})`, x, y - 5);
       });
 
       requestAnimationFrame(draw);
@@ -116,6 +123,7 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
+  // Clics sur les bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
