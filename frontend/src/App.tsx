@@ -215,23 +215,21 @@ export default function App() {
   <div className="min-h-screen bg-gray-50 p-6">
     <h1 className="text-3xl font-bold text-center mb-4">Déposez votre plateau.</h1>
 
-    <div className="relative w-full max-w-full mx-auto flex justify-center">
-      <div className="relative w-full">
-        <img
-          ref={imgRef}
-          src={`${apiUrl}/video_feed`}
-          alt="Flux vidéo"
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
-          }}
-          className="w-full h-auto object-contain"
-        />
-        <canvas
-          ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full z-10 pointer-events-auto"
-        />
-      </div>
+    <div className="flex justify-center mb-8 relative max-w-[900px] mx-auto rounded-2xl overflow-hidden shadow-lg">
+      <img
+        ref={imgRef}
+        src={`${apiUrl}/video_feed`}
+        alt="Flux vidéo"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setImgDims({ width: img.naturalWidth, height: img.naturalHeight });
+        }}
+        className="rounded-2xl w-full object-contain"
+      />
+      <canvas
+        ref={canvasRef}
+        className="absolute top-0 left-0 w-full h-full z-10 pointer-events-auto"
+      />
     </div>
 
     {selected && (
