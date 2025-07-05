@@ -11,19 +11,59 @@ interface Detection {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  plastique: "#e11d48",
-  plastic: "#e11d48",
-  métal: "#0ea5e9",
-  metal: "#0ea5e9",
-  verre: "#22c55e",
-  glass: "#22c55e",
-  papier: "#a855f7",
-  paper: "#a855f7",
-  carton: "#f97316",
-  cardbord: "#f97316",
-  biologique: "#84cc16",
-  biological: "#84cc16",
+  "plastic": "#008080",
+  "glass": "#FF0000",
+  "metal": "#0000FF",
+  "paper": "#FFA500",
+  "cardboard": "#800080",
+  "biological": "#00FF00",
 };
+
+function computeIoU(boxA: Detection, boxB: Detection): number {
+  const [xA, yA, wA, hA] = boxA.bbox;
+  const [xB, yB, wB, hB] = boxB.bbox;
+
+  const x1 = Math.max(xA, xB);
+  const y1 = Math.max(yA, yB);
+  const x2 = Math.min(xA + wA, xB + wB);
+  const y2 = Math.min(yA + hA, yB + hB);
+
+  const interArea = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  const boxAArea = wA * hA;
+  const boxBArea = wB * hB;
+  const unionArea = boxAArea + boxBArea - interArea;
+
+  return interArea / unionArea;
+}
+
+function filterOverlappingDetections(detections: Detection[], iouThreshold = 0.7): Detection[] {
+  const filtered: Detection[] = [];
+  const used = new Set();
+
+  for (let i = 0; i < detections.length; i++) {
+    if (used.has(i)) continue;
+    const current = detections[i];
+    let maxScore = current.score;
+    let best = current;
+
+    for (let j = i + 1; j < detections.length; j++) {
+      if (used.has(j)) continue;
+      const other = detections[j];
+      if (current.label === other.label && computeIoU(current, other) > iouThreshold) {
+        if (other.score > maxScore) {
+          maxScore = other.score;
+          best = other;
+        }
+        used.add(j);
+      }
+    }
+
+    filtered.push(best);
+    used.add(i);
+  }
+
+  return filtered;
+}
 
 export default function App() {
   const [detections, setDetections] = useState<Detection[]>([]);
@@ -41,7 +81,7 @@ export default function App() {
         const data = await res.json();
         setApiUrl(data.API_URL);
       } catch (err) {
-        console.error("❌ Erreur chargement config.json", err);
+        console.error("Erreur chargement config.json", err);
       }
     };
     loadConfig();
@@ -56,16 +96,12 @@ export default function App() {
           const res = await fetch(`${apiUrl}/detections`);
           if (res.ok) {
             setBackendReady(true);
-            console.log("✅ Backend prêt :", apiUrl);
             return;
           }
-        } catch (err) {
-          console.warn(`⏳ Tentative ${attempts + 1}/30 : Backend non joignable`, err);
-        }
-        await new Promise((r) => setTimeout(r, 1000));
+        } catch {}
+        await new Promise((r) => setTimeout(r, 500));
         attempts++;
       }
-      console.error("❌ Échec connexion backend après 30 tentatives");
     };
     checkBackend();
   }, [apiUrl]);
@@ -77,9 +113,9 @@ export default function App() {
       try {
         const res = await fetch(`${apiUrl}/detections`);
         const data = await res.json();
-        setDetections(data);
+        setDetections(filterOverlappingDetections(data));
       } catch (err) {
-        console.error("❌ Erreur récupération détections:", err);
+        console.error("Erreur fetch detections:", err);
       }
     };
 
@@ -112,15 +148,15 @@ export default function App() {
         const color = CATEGORY_COLORS[box.label] || "red";
 
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeRect(x, y, w, h);
 
-        ctx.fillStyle = color + "40"; // opacité
+        ctx.fillStyle = color + "44"; // transparence
         ctx.fillRect(x, y, w, h);
 
         ctx.fillStyle = color;
-        ctx.font = "16px Arial";
-        ctx.fillText(`${box.label} (${box.score})`, x, y - 8);
+        ctx.font = "bold 16px Arial";
+        ctx.fillText(`${box.label} (${box.score})`, x, y - 5);
       });
 
       requestAnimationFrame(draw);
