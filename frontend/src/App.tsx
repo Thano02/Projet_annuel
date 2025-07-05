@@ -11,12 +11,18 @@ interface Detection {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Biologique: "#1E90FF", // Bleu
-  Carton: "#FFA500",     // Orange
-  Verre: "#32CD32",      // Vert
-  Métal: "#A9A9A9",      // Gris
-  Papier: "#8A2BE2",     // Violet
-  Plastique: "#FF0000",  // Rouge
+  plastique: "#e11d48",
+  plastic: "#e11d48",
+  métal: "#0ea5e9",
+  metal: "#0ea5e9",
+  verre: "#22c55e",
+  glass: "#22c55e",
+  papier: "#a855f7",
+  paper: "#a855f7",
+  carton: "#f97316",
+  cardbord: "#f97316",
+  biologique: "#84cc16",
+  biological: "#84cc16",
 };
 
 export default function App() {
@@ -28,7 +34,6 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Chargement config.json
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -36,13 +41,12 @@ export default function App() {
         const data = await res.json();
         setApiUrl(data.API_URL);
       } catch (err) {
-        console.error("Erreur chargement config.json", err);
+        console.error("❌ Erreur chargement config.json", err);
       }
     };
     loadConfig();
   }, []);
 
-  // Ping backend
   useEffect(() => {
     if (!apiUrl) return;
     const checkBackend = async () => {
@@ -52,17 +56,20 @@ export default function App() {
           const res = await fetch(`${apiUrl}/detections`);
           if (res.ok) {
             setBackendReady(true);
+            console.log("✅ Backend prêt :", apiUrl);
             return;
           }
-        } catch {}
-        await new Promise((r) => setTimeout(r, 500));
+        } catch (err) {
+          console.warn(`⏳ Tentative ${attempts + 1}/30 : Backend non joignable`, err);
+        }
+        await new Promise((r) => setTimeout(r, 1000));
         attempts++;
       }
+      console.error("❌ Échec connexion backend après 30 tentatives");
     };
     checkBackend();
   }, [apiUrl]);
 
-  // Récupération des détections
   useEffect(() => {
     if (!backendReady || !apiUrl) return;
 
@@ -72,7 +79,7 @@ export default function App() {
         const data = await res.json();
         setDetections(data);
       } catch (err) {
-        console.error("Erreur fetch detections:", err);
+        console.error("❌ Erreur récupération détections:", err);
       }
     };
 
@@ -81,7 +88,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
-  // Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -109,12 +115,12 @@ export default function App() {
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
 
-        ctx.fillStyle = color + "33"; // transparence
+        ctx.fillStyle = color + "40"; // opacité
         ctx.fillRect(x, y, w, h);
 
         ctx.fillStyle = color;
         ctx.font = "16px Arial";
-        ctx.fillText(`${box.label} (${box.score})`, x, y - 5);
+        ctx.fillText(`${box.label} (${box.score})`, x, y - 8);
       });
 
       requestAnimationFrame(draw);
@@ -123,7 +129,6 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
-  // Clics sur les bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
