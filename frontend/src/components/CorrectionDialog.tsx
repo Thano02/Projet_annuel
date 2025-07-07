@@ -37,6 +37,7 @@ export function CorrectionDialog({
     if (!wrongCategory || !correctedCategory) return;
 
     try {
+      console.log("📡 URL de l’API utilisée :", apiUrl);
       const res = await fetch(`${apiUrl}/correction`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
