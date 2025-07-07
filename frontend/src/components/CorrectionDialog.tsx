@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-// Catégories de déchets
 const categories = [
   { label: "Biologique", value: "biological", emoji: "🍌🥙" },
   { label: "Carton", value: "cardboard", emoji: "📦" },
@@ -11,7 +10,6 @@ const categories = [
   { label: "Plastique", value: "plastic", emoji: "🧴" },
 ];
 
-// Interface de détection
 interface Detection {
   id: string;
   label: string;
@@ -21,7 +19,6 @@ interface Detection {
   image_height: number;
 }
 
-// Dialog de correction
 export function CorrectionDialog({
   onClose,
   detection,
@@ -33,11 +30,9 @@ export function CorrectionDialog({
   const [wrongCategory, setWrongCategory] = useState<string | null>(null);
   const [correctedCategory, setCorrectedCategory] = useState<string | null>(null);
 
-  // Récupère l’URL de l’API depuis .env
   const apiUrl =
-    import.meta.env.VITE_API_URL || import.meta.env.NEXT_PUBLIC_API_URL;
+    import.meta.env.VITE_API_URL ?? import.meta.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-  // Envoie de la correction
   const submitCorrection = async () => {
     if (!wrongCategory || !correctedCategory) return;
 
