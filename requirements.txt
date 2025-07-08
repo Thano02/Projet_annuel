@@ -9,3 +9,5 @@ pandas
 tqdm
 python-multipart
 numpy<2
+psycopg2-binary
+python-multipart
