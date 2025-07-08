@@ -46,3 +46,11 @@ async def insert_correction(req: Request):
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "proxy is alive"}
+
+@app.get("/ping")
+def ping():
+    return {"ping": "pong"}
