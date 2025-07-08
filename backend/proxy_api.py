@@ -47,16 +47,16 @@ async def insert_correction(req: Request):
         cur = conn.cursor()
 
         # Insertion SQL
-        cur.execute("""
-            INSERT INTO corrections (timestamp, image_filename, wrong_category, corrected_category, confidence)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            data["timestamp"],
-            data["image_filename"],
-            data["wrong_category"],
-            data["corrected_category"],
-            float(data["confidence"])
-        ))
+        cur.execute(
+            "INSERT INTO corrections (timestamp, image_filename, wrong_category, corrected_category, confidence) VALUES (%s, %s, %s, %s, %s)",
+            (
+                correction["timestamp"],
+                correction["image_filename"],
+                correction["wrong_category"],
+                correction["corrected_category"],
+                correction["confidence"]
+            )
+        )
 
         conn.commit()
         cur.close()
