@@ -14,11 +14,11 @@ app.add_middleware(
 )
 
 DB_CONFIG = {
-    "host": os.getenv("PGHOST", ""),
-    "port": os.getenv("PGPORT", "5432"),
-    "dbname": os.getenv("PGDATABASE", ""),
-    "user": os.getenv("PGUSER", ""),
-    "password": os.getenv("PGPASSWORD", "")
+    "host": os.environ["PGHOST"],
+    "port": os.environ["PGPORT"],
+    "dbname": os.environ["PGDATABASE"],
+    "user": os.environ["PGUSER"],
+    "password": os.environ["PGPASSWORD"]
 }
 
 @app.post("/correction")
