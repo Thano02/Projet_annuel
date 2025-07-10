@@ -21,6 +21,8 @@ DB_CONFIG = {
     "password": os.environ["PGPASSWORD"]
 }
 
+TABLE_NAME = os.getenv("TABLE_NAME", "corrections_user")
+
 @app.post("/correction")
 async def receive_correction(req: Request):
     try:
@@ -29,8 +31,9 @@ async def receive_correction(req: Request):
 
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO corrections (timestamp, image_filename, wrong_category, corrected_category, confidence)
+        cur.execute(f"""
+            INSERT INTO {TABLE_NAME} 
+            (timestamp, image_filename, wrong_category, corrected_category, confidence)
             VALUES (%s, %s, %s, %s, %s)
         """, (
             payload["timestamp"],
