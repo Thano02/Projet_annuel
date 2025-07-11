@@ -2,11 +2,11 @@ import psycopg2
 import subprocess
 
 PG_CONFIG = {
-    "host": "containers-us-west-157.railway.app",
-    "port": "5432",
-    "dbname": "railway",
-    "user": "postgres",
-    "password": "WuhubolldZrhJtXlLkeUMpV1ANdiBBqk"
+    "host": os.getenv("PGHOST"),
+    "port": os.getenv("PGPORT", "5432"),
+    "dbname": os.getenv("PGDATABASE"),
+    "user": os.getenv("PGUSER"),
+    "password": os.getenv("PGPASSWORD")
 }
 
 THRESHOLD = 100
@@ -14,7 +14,7 @@ THRESHOLD = 100
 try:
     conn = psycopg2.connect(**PG_CONFIG)
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM corrections;")
+    cur.execute("SELECT COUNT(*) FROM corrections_user;")
     count = cur.fetchone()[0]
     cur.close()
     conn.close()
