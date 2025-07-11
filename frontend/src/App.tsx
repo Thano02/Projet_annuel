@@ -72,8 +72,20 @@ export default function App() {
   const [backendReady, setBackendReady] = useState(false);
   const [imgDims, setImgDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const videoRef  = useRef<HTMLVideoElement>(null);
 
+  // 1️⃣ Démarrage de la caméra
+  useEffect(() => {
+    if (!videoRef.current) return;
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        videoRef.current!.srcObject = stream;
+        videoRef.current!.play();
+      })
+      .catch(err => console.error("Erreur accès caméra :", err));
+  }, []);
+
+  // 2️⃣ Polling des détections (envoyer la frame à ton API)
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -124,6 +136,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [backendReady, apiUrl]);
 
+  // 3️⃣ Dessin des bounding boxes
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
@@ -165,12 +178,13 @@ export default function App() {
     draw();
   }, [detections, backendReady, imgDims]);
 
+  // 4️⃣ Gestion du clic comme avant
   useEffect(() => {
     if (!backendReady) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const handleClick = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
