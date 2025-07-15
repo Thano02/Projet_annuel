@@ -1,9 +1,0 @@
-
-> frontend-ready@1.0.0 dev
-> vite --port 5173
-
-
-  VITE v4.5.14  ready in 403 ms
-
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
