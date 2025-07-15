@@ -21,7 +21,7 @@ jobs:
     - name: Installer les dépendances Python
       run: |
         python -m pip install --upgrade pip
-        pip install pandas opencv-python tqdm ultralytics
+        pip install pandas opencv-python tqdm ultralytics psycopg2-binary
 
     - name: Debug – contenu du dépôt
       run: |
@@ -30,6 +30,14 @@ jobs:
         ls -l
         echo "backend/ :"
         ls -l backend
+
+    - name: Exporter les variables d’environnement PostgreSQL
+      run: |
+        echo "PGHOST=${{ secrets.PGHOST }}" >> $GITHUB_ENV
+        echo "PGPORT=${{ secrets.PGPORT }}" >> $GITHUB_ENV
+        echo "PGDATABASE=${{ secrets.PGDATABASE }}" >> $GITHUB_ENV
+        echo "PGUSER=${{ secrets.PGUSER }}" >> $GITHUB_ENV
+        echo "PGPASSWORD=${{ secrets.PGPASSWORD }}" >> $GITHUB_ENV
 
     - name: Lancer check_and_run.py
       run: python backend/check_and_run.py

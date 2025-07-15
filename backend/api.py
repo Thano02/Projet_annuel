@@ -1,18 +1,19 @@
-from fastapi import FastAPI, Body
-from fastapi.responses import StreamingResponse, JSONResponse, Response
+from fastapi import FastAPI, UploadFile, Body
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
+import cv2
+import numpy as np
+import os
+import threading
+import queue
+import time
+import uuid
 from datetime import datetime
 import pandas as pd
-import cv2
-import threading
-import signal
-import contextlib
-import os
-import uuid
-from fastapi.middleware.cors import CORSMiddleware
 
+# Initialisation FastAPI
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,92 +22,119 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === Modèle YOLO fine-tuné ===
-model = YOLO("clean_dataset/runs/segment/train/weights/best.pt")
+# Chargement du modèle YOLO fine-tuné
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "model", "yolo_finetune", "final_model", "best.pt")
+model = YOLO(MODEL_PATH)
+print("✅ Modèle YOLO chargé :", MODEL_PATH)
 
-# === Caméra ===
-cap = cv2.VideoCapture(0)
-stop_stream = threading.Event()
+# Variables globales
+current_frame = None
 latest_detections = []
+frame_queue = queue.Queue()
 
-# === Dossiers & fichiers ===
-CORRECTIONS_FILE = "corrections.csv"
+# Dossier pour corrections
 CAPTURE_DIR = "captured"
+CORRECTIONS_FILE = "corrections.csv"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
-# === Gestion propre de l'arrêt ===
-def handle_exit(sig, frame):
-    print("🛑 Arrêt demandé...")
-    stop_stream.set()
-    cap.release()
-
-signal.signal(signal.SIGINT, handle_exit)
-
-# === Générateur de frames avec détection YOLO ===
-def gen_frames():
+# Worker YOLO en tâche de fond
+def yolo_worker():
     global latest_detections
-    while not stop_stream.is_set():
-        success, frame = cap.read()
-        if not success:
-            break
+    print("🚀 YOLO worker démarré")
 
-        with open(os.devnull, 'w') as fnull:
-            with contextlib.redirect_stdout(fnull), contextlib.redirect_stderr(fnull):
-                results = model(frame)
+    while True:
+        frame = frame_queue.get()
+        print("📥 Nouvelle frame reçue dans le worker")
+        if frame is None:
+            continue
 
-        latest_detections.clear()
-        height, width, _ = frame.shape
-        boxes = results[0].boxes.data.tolist()
-        names = results[0].names
+        print("🖼️ Frame shape :", frame.shape)
+        print("🧪 Envoi au modèle YOLO...")
 
-        for box in boxes:
-            x1, y1, x2, y2, score, class_id = box
-            label = names[int(class_id)]
-            latest_detections.append({
-                "id": str(uuid.uuid4()),
-                "label": label,
-                "score": round(score, 2),
-                "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
-                "image_width": width,
-                "image_height": height
-            })
+        try:
+            results = model(frame)
+            detections = []
+            height, width, _ = frame.shape
+            boxes = results[0].boxes.data.tolist()
+            names = results[0].names
 
-        annotated = results[0].plot()
-        _, buffer = cv2.imencode('.jpg', annotated)
-        yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            print(f"📦 {len(boxes)} box(es) détectée(s)")
 
-# === Endpoints ===
+            for box in boxes:
+                try:
+                    x1, y1, x2, y2, score, class_id = box
+                    label = names[int(class_id)]
+                    det = {
+                        "id": str(uuid.uuid4()),
+                        "label": label,
+                        "score": round(score, 2),
+                        "bbox": [int(x1), int(y1), int(x2 - x1), int(y2 - y1)],
+                        "image_width": width,
+                        "image_height": height
+                    }
+                    detections.append(det)
+                except Exception as e:
+                    print("❌ Erreur lors du traitement d'une box :", e)
+
+            latest_detections = detections
+            print("🔎 Dernières détections :", latest_detections)
+        except Exception as e:
+            print("❌ Erreur lors de l'inférence YOLO :", e)
+
+        frame_queue.task_done()
+
+# Lancement du worker YOLO en background
+threading.Thread(target=yolo_worker, daemon=True).start()
+print("🧵 Thread lancé")
+
+@app.post("/upload_frame")
+async def upload_frame(file: UploadFile):
+    global current_frame
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if frame is None:
+        print("❌ Erreur décodage frame")
+        return {"status": "error", "message": "invalid frame"}
+    current_frame = frame
+    frame_queue.put(frame)
+    print(f"✅ Reçu une frame de {len(contents)} octets")
+    print("📨 Frame envoyée dans la file de traitement")
+    return {"status": "ok"}
+
 @app.get("/video_feed")
 async def video_feed():
-    return StreamingResponse(gen_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+    def generate():
+        while True:
+            if current_frame is not None:
+                annotated_frame = current_frame.copy()
+                for det in latest_detections:
+                    x, y, w, h = det["bbox"]
+                    cv2.rectangle(annotated_frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                    cv2.putText(annotated_frame, det["label"], (x, y - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                ret, buffer = cv2.imencode('.jpg', annotated_frame)
+                frame_bytes = buffer.tobytes()
+                yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            else:
+                time.sleep(0.1)
+    return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/detections")
 async def get_detections():
     return JSONResponse(content=latest_detections)
 
-@app.get("/snapshot")
-def snapshot():
-    success, frame = cap.read()
-    if not success:
-        return Response(status_code=500)
-    _, buffer = cv2.imencode('.jpg', frame)
-    return Response(content=buffer.tobytes(), media_type="image/jpeg")
-
 @app.post("/correction")
 async def save_correction(data: dict = Body(...)):
-    print(f"📩 Correction reçue : {data}")
+    if current_frame is None:
+        return JSONResponse(status_code=500, content={"message": "Aucune image disponible"})
 
-    # Capture image depuis la caméra
-    ret, frame = cap.read()
-    if not ret:
-        return JSONResponse(status_code=500, content={"message": "Erreur lors de la capture caméra"})
-
-    # Récupération directe de la détection (plus d'ID à rechercher)
+    frame = current_frame.copy()
     detection = data["detection"]
     x, y, w, h = detection["bbox"]
     crop = frame[y:y+h, x:x+w]
 
-    # Sauvegarde des fichiers
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     full_img_name = f"capture_{timestamp}.jpg"
     crop_img_name = f"crop_{timestamp}.jpg"
@@ -116,7 +144,6 @@ async def save_correction(data: dict = Body(...)):
     cv2.imwrite(full_path, frame)
     cv2.imwrite(crop_path, crop)
 
-    # Construction de la ligne de correction
     correction = {
         "timestamp": datetime.now().isoformat(),
         "image_filename": full_img_name,

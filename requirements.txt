@@ -1,0 +1,13 @@
+azure-functions
+fastapi
+uvicorn
+torch>=2.0.0,<3.0.0
+torchvision>=0.15.1,<1.0.0
+ultralytics==8.3.141
+opencv-python
+pandas
+tqdm
+python-multipart
+numpy<2
+psycopg2-binary
+python-multipart

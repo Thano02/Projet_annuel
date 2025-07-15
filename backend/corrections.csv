@@ -4,5 +4,6 @@ timestamp,image_filename,wrong_category,corrected_category
 2025-06-11T22:32:42.058230,capture_20250611_223242.jpg,crop_20250611_223242.jpg,"[1, 65, 442, 510]",biological,biological,plastic,0.63
 2025-06-11T22:35:49.620540,capture_20250611_223549.jpg,crop_20250611_223549.jpg,"[78, 86, 897, 977]",metal,metal,cardboard,0.62
 2025-06-12T20:06:45.814059,capture_20250612_200645.jpg,crop_20250612_200645.jpg,"[44, 0, 1866, 1080]",metal,biological,biological,0.67
-2025-06-24T09:11:47.086139,capture_20250624_091147.jpg,crop_20250624_091147.jpg,"[698, 594, 451, 308]",biological,cardboard,biological,0.51
-2025-06-26T19:08:50.030775,capture_20250626_190850.jpg,crop_20250626_190850.jpg,"[1251, 300, 540, 769]",glass,metal,cardboard,0.53
+2025-06-13T17:09:59.426482,capture_20250613_170959.jpg,crop_20250613_170959.jpg,"[457, 1, 1326, 1073]",cardboard,cardboard,biological,0.64
+2025-06-13T17:20:25.977959,capture_20250613_172025.jpg,crop_20250613_172025.jpg,"[642, 234, 1262, 557]",paper,paper,biological,0.77
+2025-06-14T17:49:50.429679,capture_20250614_174950.jpg,crop_20250614_174950.jpg,"[599, 0, 1308, 1023]",metal,metal,plastic,0.41

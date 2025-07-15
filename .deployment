@@ -1,0 +1,4 @@
+[config]
+
+project = frontend
+python = backend

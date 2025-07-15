@@ -30,25 +30,29 @@ export function CorrectionDialog({
   const [wrongCategory, setWrongCategory] = useState<string | null>(null);
   const [correctedCategory, setCorrectedCategory] = useState<string | null>(null);
 
+  const apiUrl =
+    import.meta.env.VITE_API_URL ?? import.meta.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
   const submitCorrection = async () => {
     if (!wrongCategory || !correctedCategory) return;
 
     try {
-      const res = await fetch("http://localhost:8000/correction", {
+      console.log("📡 URL de l’API utilisée :", apiUrl);
+      const res = await fetch(`${apiUrl}/correction`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           wrong: wrongCategory,
           corrected: correctedCategory,
-          detection: detection, // envoie l’objet complet, plus fiable que juste l’ID
+          detection: detection,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("Erreur API :", data);
-        alert("❌ Erreur : " + (data.message || "Problème d’envoi."));
+        console.error("Erreur backend :", data);
+        alert("❌ Erreur côté serveur : " + (data.message || "inconnue"));
         return;
       }
 
@@ -56,7 +60,7 @@ export function CorrectionDialog({
       onClose();
     } catch (err) {
       console.error("Erreur réseau :", err);
-      alert("❌ Erreur réseau");
+      alert("❌ Erreur réseau lors de l’envoi de la correction");
     }
   };
 
@@ -72,7 +76,7 @@ export function CorrectionDialog({
             <div className="grid grid-cols-2 gap-3 mb-6">
               {categories.map((cat) => (
                 <button
-                  key={cat.label}
+                  key={cat.value}
                   onClick={() => setWrongCategory(cat.value)}
                   className={`rounded-xl border p-4 flex items-center justify-center text-lg font-medium transition ${
                     wrongCategory === cat.value
@@ -100,13 +104,13 @@ export function CorrectionDialog({
         {step === 2 && (
           <>
             <h2 className="text-xl font-semibold mb-4 text-center">
-              Quelle est la bonne catégorie pour le déchet ?
+              Quelle est la bonne catégorie pour ce déchet ?
             </h2>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {categories.map((cat) => (
                 <button
-                  key={cat.label}
+                  key={cat.value}
                   onClick={() => setCorrectedCategory(cat.value)}
                   className={`rounded-xl border p-4 flex items-center justify-center text-lg font-medium transition ${
                     correctedCategory === cat.value
@@ -125,7 +129,7 @@ export function CorrectionDialog({
                 Retour
               </Button>
               <Button onClick={submitCorrection} disabled={!correctedCategory}>
-                Valider
+                Envoyer
               </Button>
             </div>
           </>
